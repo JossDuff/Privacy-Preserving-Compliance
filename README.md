@@ -58,24 +58,20 @@ privacy-preserving-compliance/
 │   └── src/
 ```
 
+# Running
+
+```bash 
+# Build 
+cargo build --bin regulator-cli
+cargo build --bin proof-manager
+
+# Build and run.  For debugging, omit --release
+cargo run --release --bin regulator-cli
+cargo run --release --bin proof-manager
+```
+
 # Contributing
 All contributions must be made by opening a PR to main and requires a review to be merged.
 
 This is a master's thesis project and feedback and suggestions are welcome. Please open issues for bugs or feature requests.
-
-
-# To put back in 
-
-- [ ] Multi-constraint aggregated circuits
-  - [ ] Sanctions + account age
-  - [ ] Protocol interaction requirements (INTERACT/AVOID)
-  - [ ] Anti-structuring constraint (STRUCTURE)
-
-- [ ] Inference engine
-  - [ ] Identify previously proven constraints
-  - [ ] Determine minimal proof set needed
-  - [ ] Handle constraint subset relationships
-
-  - [ ] Add aggregation proof support (later)
-
 

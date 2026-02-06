@@ -1,0 +1,5 @@
+[workspace]
+members = ["regulator-cli", "proof-manager"]
+resolver = "2"
+
+[workspace.dependencies]

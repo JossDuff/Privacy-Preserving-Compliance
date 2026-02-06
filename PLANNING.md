@@ -1,5 +1,27 @@
 # Development and planning document
 
+# Table of Contents
+
+- [Tech Stack](#tech-stack)
+- [Components](#components)
+  - [1. Regulator Cli](#1-regulator-cli)
+  - [2. User Proof Manager](#2-user-proof-manager)
+  - [3. Example Applications](#3-example-applications)
+- [MVP Tasks](#mvp-tasks)
+  - [Milestone 1: Regulator Stack](#milestone-1-regulator-stack)
+  - [Milestone 2: User Proof Manager](#milestone-2-user-proof-manager)
+  - [Milestone 3: Example Application - Compliant Stablecoin](#milestone-3-example-application---compliant-stablecoin)
+  - [Milestone 4: Benchmarking](#milestone-4-benchmarking)
+- [Post-MVP](#post-mvp)
+  - [Proof aggregation](#proof-aggregation)
+  - [Compliant Transaction Mixer](#compliant-transaction-mixer)
+- [Extensions and future work](#extensions-and-future-work)
+  - [More complex example constraints](#more-complex-example-constraints)
+  - [Constraint Logical Inference](#constraint-logical-inference)
+  - [Constraint DSL](#constraint-dsl)
+  - [Web Applications](#web-applications)
+  - [Alternative Demo Applications](#alternative-demo-applications)
+
 ## Tech Stack
 
 ### Smart Contracts
@@ -168,12 +190,16 @@ Still required, but we should focus on the MVP first
 ---
 ## Extensions and future work
 
-#### Proof Logical Inference
-- [ ] In circuit logical implication detection
-- [ ] Cross-definition optimization
-  - [ ] Shared constraint identification
-  - [ ] Proof reuse across definitions
-  - [ ] Load and fetch minimal amount of on-chain state based on constraint overlap
+#### More complex example constraints
+- [ ] Protocol interaction requirements (INTERACT/AVOID)
+- [ ] Anti-structuring constraint (STRUCTURE)
+
+#### Constraint Logical Inference
+- [ ] In-circuit logical implication detection
+  - [ ] Identify previously proven constraints
+  - [ ] Determine minimal proof set needed
+- [ ] Proof reuse across definitions
+- [ ] Load and fetch minimal amount of on-chain state based on constraint overlap
 
 #### Constraint DSL
 - [ ] Design readable constraint syntax
