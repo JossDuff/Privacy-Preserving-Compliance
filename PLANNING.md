@@ -30,10 +30,10 @@
 
 ### Zero-Knowledge Proofs
 - **Noir** - ZK circuit DSL for compliance definitions
-- **PLONK** - Proving system (supports reusable trusted setup)
 
 ### Backend/Tooling
-- **Rust** - CLI tools and proof manager
+- **Rust** - Regulator CLI
+- **js** - proof manager
 - **IPFS** - Decentralized storage for compliance definitions
 
 ---
@@ -61,7 +61,7 @@ Enable regulators to create, publish, and update compliance definitions
 Enable users to generate compliance proofs efficiently
 
 **Deliverables**:
-- Rust binary/library for proof generation
+- Use Noir js library for proof generation
 - Transaction history indexing
 - Constraint inference engine
 - Proof caching system
