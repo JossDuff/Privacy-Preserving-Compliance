@@ -1,5 +1,3 @@
-test
-
 # Privacy-Preserving-Compliance
 Prototype implementation of masters thesis framework `Privacy Preserving Compliance`.  The current draft of my thesis can be found at [https://github.com/JossDuff/thesis](https://github.com/JossDuff/thesis).
 
@@ -73,7 +71,7 @@ cargo run --release --bin proof-manager
 ```
 
 # Contributing
-All contributions must be made by opening a PR to main and requires a review to be merged.
+All contributions must be made by opening a PR to main and requires a review to be merged.  Include sufficient tests with any code implemented.
 
 This is a master's thesis project and feedback and suggestions are welcome. Please open issues for bugs or feature requests.
 
