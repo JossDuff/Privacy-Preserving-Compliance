@@ -1,8 +1,5 @@
 # Development and planning document
 
----
-
-
 ## Tech Stack
 
 ### Smart Contracts
@@ -23,7 +20,7 @@
 
 ### 1. Regulator Cli
 
-**Purpose**: Enable regulators to create, publish, and update compliance definitions
+Enable regulators to create, publish, and update compliance definitions
 
 **Deliverables**:
 - CLI for compliance definition management
@@ -39,7 +36,7 @@
 
 ### 2. User Proof Manager
 
-**Purpose**: Enable users to generate compliance proofs efficiently
+Enable users to generate compliance proofs efficiently
 
 **Deliverables**:
 - Rust binary/library for proof generation
@@ -58,7 +55,7 @@
 
 ### 3. Example Applications
 
-**Purpose**: Demonstrate framework integration
+Demonstrate framework integration
 
 **Deliverables**:
 - Compliant ERC20 Stablecoin or Compliant Transaction Mixer (Tornado Cash fork)
@@ -98,7 +95,7 @@ function transfer(address recipient, uint256 amount, bytes proof) {
   - [ ] Add metadata storage (IPFS hash)
 - [ ] Access control
   - [ ] Ownable pattern for updates
-  - [ ] Regulator signature verification on-chain
+  - [ ] Regulator signature verification 
 
 #### Example Compliance Circuits
 - [ ] Simple single-constraint circuits
@@ -129,7 +126,7 @@ function transfer(address recipient, uint256 amount, bytes proof) {
   - [ ] Generate individual constraint proofs
 - [ ] Proof storage system
 
-### Milestone 3: Example Application Compliant Stablecoin
+### Milestone 3: Example Application - Compliant Stablecoin
 
 - [ ] Base ERC20 implementation
 - [ ] Integration with framework
@@ -144,7 +141,6 @@ function transfer(address recipient, uint256 amount, bytes proof) {
 - [ ] Gas costs for verification
 - [ ] Proof size measurements
 - [ ] Transaction history size scaling
-- [ ] Aggregation overhead
 
 ### Test Scenarios
 - [ ] Empty set membership (baseline)
@@ -153,7 +149,9 @@ function transfer(address recipient, uint256 amount, bytes proof) {
 - [ ] Complex multi-constraint definitions
 - [ ] Update frequency stress tests
 
+---
 ## Post-MVP
+Still required, but we should focus on the MVP first
 
 #### Proof aggregation
 - [ ] Modify verifier contract to aggregate and verify multiple proofs
@@ -167,6 +165,7 @@ function transfer(address recipient, uint256 amount, bytes proof) {
   - [ ] Verify proof on withdrawal
 - [ ] Deploy demo frontend
 
+---
 ## Extensions and future work
 
 #### Proof Logical Inference
@@ -197,17 +196,5 @@ function transfer(address recipient, uint256 amount, bytes proof) {
 - **Credential Systems**: Prove eligibility without revealing attributes
 - **Supply Chain**: B2B privacy on public chains
 
----
 
-## Repository Structure
-```
-privacy-preserving-compliance/
-├── circuits/               # Example Noir compliance circuits
-├── contracts/             # Solidity smart contracts
-├── regulator-cli/         # Rust CLI for regulators
-│   └── src/
-├── proof-manager/         # Rust proof generation system
-│   └── src/
-```
 
----

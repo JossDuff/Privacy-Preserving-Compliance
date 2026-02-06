@@ -16,9 +16,7 @@ This repository contains the implementation of a framework for composable privac
 
 ---
 
-## Architecture
-
-### Actor Model
+## Framework Actors
 
 The framework supports three types of actors:
 
@@ -48,7 +46,17 @@ The framework supports three types of actors:
                   proof
 ```
 
----
+
+## Repository Structure
+```
+privacy-preserving-compliance/
+├── circuits/               # Example Noir compliance circuits
+├── contracts/             # Solidity smart contracts
+├── regulator-cli/         # Rust CLI for regulators
+│   └── src/
+├── proof-manager/         # Rust proof generation system
+│   └── src/
+```
 
 # Contributing
 All contributions must be made by opening a PR to main and requires a review to be merged.
