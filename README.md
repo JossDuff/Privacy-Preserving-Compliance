@@ -68,7 +68,15 @@ cargo build --bin proof-manager
 # Build and run.  For debugging, omit --release
 cargo run --release --bin regulator-cli
 cargo run --release --bin proof-manager
+
+# Circuits
+cd circuits/hello_world
+nargo check
+# Add circuit input to circuits/hello_world/Prover.toml
+nargo execute
 ```
+
+
 
 # Contributing
 All contributions must be made by opening a PR to main and requires a review to be merged.  Include sufficient tests with any code implemented.

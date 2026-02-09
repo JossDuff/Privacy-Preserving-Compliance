@@ -66,5 +66,6 @@ Deploy both contracts to **Sepolia testnet** and provide:
 
 ## Resources
 
+- [Noir Quickstart](https://noir-lang.org/docs/getting_started/quick_start)
 - [Noir.js Tutorial](https://noir-lang.org/docs/tutorials/noirjs_app)
 - [Solidity Verifier Deployment Guide](https://barretenberg.aztec.network/docs/how_to_guides/how-to-solidity-verifier/)
