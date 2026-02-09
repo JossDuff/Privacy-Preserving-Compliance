@@ -5,3 +5,16 @@ authors = ["Joss Duff"]
 
 [dependencies]
 
+# EXAMPLE
+# [package]
+# name = "noir_starter"
+# type = "bin"
+# authors = ["Alice"]
+# compiler_version = "0.9.0"
+# description = "Getting started with Noir"
+# entry = "circuit/main.nr"
+# license = "MIT"
+#
+# [dependencies]
+# ecrecover = {tag = "v0.9.0", git = "https://github.com/colinnielsen/ecrecover-noir.git"}
+
