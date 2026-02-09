@@ -2,7 +2,7 @@
 
 ## Overview
 
-This task is designed to help you understand how zero-knowledge circuits interact with smart contracts and the use of on-chain vs off-chain data in proofs. If you hate Noir and Solidity then you won't have to touch it after this task.  I'm assigning this to you because **you must understand the interaction between smart contracts and proofs** — this is fundamental to my thesis. 
+This task is designed to help you understand how zero-knowledge circuits interact with smart contracts and the use of on-chain vs off-chain data in proofs.  I'm assigning this to you because **you must understand the interaction between smart contracts and proofs** — this is fundamental to my thesis. 
 
 ## Task Requirements
 
@@ -12,9 +12,10 @@ Write a whitelist Noir circuit with the following specifications:
 
 - **Input**: An address and verify if it exists in the whitelist (fail otherwise)
 - **Secret validation**: Check if the caller knows the secret number (42)
-- **Secret number**: Must remain off-chain (cannot be stored in the smart contract)
+    - The secret number is just a demonstration of how you can verify a secret on-chain without making that secret public
 
 Your Noir function should follow this structure:
+
 
 ```noir
 fn main(whitelist, caller, secret_number) {
@@ -37,9 +38,11 @@ Create a smart contract with a `do-something` function that:
 - Verifies the caller has a valid proof from the above circuit
 - Uses a public whitelist (stored on-chain)
 - References the verifier contract address
-- **Important**: The secret number must NOT be stored on-chain
+- **Important**: The secret number must NOT be stored on-chain.  It is always 42 just for the purpose of this task.
 
 Your Solidity function should follow this structure:
+
+> **_NOTE:_** In practice it is impractical to store the whitelist as an array of addresses on-chain.  The correct approach is to store the Merkle root of the whitelist, then as input to the circuit pass the leaf (the address), sibling nodes, and Merkle root to verify membership.
 
 ```solidity
 pub whitelist: address[]
@@ -64,4 +67,4 @@ Deploy both contracts to **Sepolia testnet** and provide:
 ## Resources
 
 - [Noir.js Tutorial](https://noir-lang.org/docs/tutorials/noirjs_app)
-- [Barretenberg Solidity Verifier Guide](https://barretenberg.aztec.network/docs/how_to_guides/how-to-solidity-verifier/)
+- [Solidity Verifier Deployment Guide](https://barretenberg.aztec.network/docs/how_to_guides/how-to-solidity-verifier/)
