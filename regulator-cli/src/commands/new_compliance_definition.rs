@@ -1,6 +1,6 @@
 use anyhow::Result;
 use serde::Serialize;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use crate::forge;
 use crate::receipt::Receipt;
@@ -18,7 +18,7 @@ pub async fn run(
     private_key: &str,
     regulator: &str,
     contract_dir: &Path,
-    output: &PathBuf,
+    receipts_dir: &Path,
 ) -> Result<()> {
     eprintln!("compiling contracts...");
     forge::build(contract_dir)?;
@@ -44,7 +44,7 @@ pub async fn run(
     };
 
     let receipt = Receipt::new("new-compliance-definition", data);
-    receipt.write_to(output)?;
+    receipt.write_to_dir(receipts_dir)?;
 
     Ok(())
 }

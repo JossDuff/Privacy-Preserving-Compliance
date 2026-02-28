@@ -36,7 +36,7 @@ pub async fn run(
     params_root: &str,
     t_start: &str,
     t_end: &str,
-    output: &Path,
+    receipts_dir: &Path,
 ) -> Result<()> {
     if !project_dir.is_dir() {
         bail!("not a directory: {}", project_dir.display());
@@ -140,7 +140,7 @@ pub async fn run(
     };
 
     let receipt = Receipt::new("publish", data);
-    receipt.write_to(output)?;
+    receipt.write_to_dir(receipts_dir)?;
 
     Ok(())
 }

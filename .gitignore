@@ -1,6 +1,6 @@
 /target
 circuits/**/target
-receipt.json
+receipts/
 verifier-base-contract/out/
 verifier-base-contract/cache/
 
