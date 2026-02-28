@@ -3,6 +3,8 @@ use serde::Serialize;
 use std::path::{Path, PathBuf};
 
 use crate::bb;
+use crate::cast;
+use crate::forge;
 use crate::ipfs;
 use crate::nargo;
 use crate::receipt::Receipt;
@@ -16,12 +18,24 @@ pub struct PublishData {
     pub cid: String,
     pub file_name: String,
     pub ipfs_size: String,
+    pub verifier_address: String,
+    pub deploy_tx_hash: String,
+    pub compliance_definition: String,
+    pub update_tx_hash: String,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn run(
     project_dir: PathBuf,
     verifier_output: Option<PathBuf>,
     ipfs_rpc_url: &str,
+    rpc_url: &str,
+    private_key: &str,
+    compliance_definition: &str,
+    contract_dir: &Path,
+    params_root: &str,
+    t_start: &str,
+    t_end: &str,
     output: &Path,
 ) -> Result<()> {
     if !project_dir.is_dir() {
@@ -66,16 +80,63 @@ pub async fn run(
         .context("failed to upload circuit to IPFS")?;
     eprintln!("uploaded to IPFS");
 
-    println!("{}", response.hash);
+    // 6. Copy Verifier.sol into the Foundry project for deployment
+    let deploy_verifier_path = contract_dir.join("src/Verifier.sol");
+    std::fs::copy(&verifier_path, &deploy_verifier_path).with_context(|| {
+        format!(
+            "failed to copy Verifier.sol to {}",
+            deploy_verifier_path.display()
+        )
+    })?;
+
+    // 7. Build the Foundry project with the new Verifier.sol
+    eprintln!("compiling verifier contract...");
+    forge::build(contract_dir)?;
+    eprintln!("verifier contract compiled");
+
+    // 8. Deploy the HonkVerifier contract
+    eprintln!("deploying verifier contract...");
+    let deploy_result = forge::create(
+        contract_dir,
+        rpc_url,
+        private_key,
+        "src/Verifier.sol:HonkVerifier",
+        &[],
+    )?;
+    eprintln!("verifier deployed to {}", deploy_result.deployed_to);
+
+    // 9. Call updateConstraint on the ComplianceDefinition contract
+    let cid = &response.hash;
+    eprintln!("registering compliance version...");
+    let update_result = cast::send(
+        rpc_url,
+        private_key,
+        compliance_definition,
+        "updateConstraint(address,bytes32,uint256,uint256,string)",
+        &[
+            &deploy_result.deployed_to,
+            params_root,
+            t_start,
+            t_end,
+            cid,
+        ],
+    )?;
+    eprintln!("compliance version registered");
+
+    println!("{}", deploy_result.deployed_to);
 
     let data = PublishData {
         project_dir: project_dir.display().to_string(),
         bytecode_path: bytecode_path.display().to_string(),
         vk_path: vk_path.display().to_string(),
         verifier_path: verifier_path.display().to_string(),
-        cid: response.hash,
+        cid: cid.to_string(),
         file_name: response.name,
         ipfs_size: response.size,
+        verifier_address: deploy_result.deployed_to,
+        deploy_tx_hash: deploy_result.transaction_hash,
+        compliance_definition: compliance_definition.to_string(),
+        update_tx_hash: update_result.transaction_hash,
     };
 
     let receipt = Receipt::new("publish", data);

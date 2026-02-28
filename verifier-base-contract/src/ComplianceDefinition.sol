@@ -9,7 +9,7 @@ contract ComplianceDefinition {
         bytes32 paramsRoot;
         uint256 tStart;
         uint256 tEnd;
-        bytes32 metadataHash;
+        string metadataHash;
     }
 
     ComplianceVersion[] public versions;
@@ -38,7 +38,7 @@ contract ComplianceDefinition {
         bytes32 newParamsRoot,
         uint256 tStart,
         uint256 tEnd,
-        bytes32 metadataHash
+        string calldata metadataHash
     ) external onlyRegulator {
         versions.push(ComplianceVersion({
             verifier: newVerifier,
@@ -53,7 +53,7 @@ contract ComplianceDefinition {
         bytes32 newParamsRoot,
         uint256 tStart,
         uint256 tEnd,
-        bytes32 metadataHash
+        string calldata metadataHash
     ) external onlyRegulator {
         ComplianceVersion memory current = getActiveVersion();
         versions.push(ComplianceVersion({

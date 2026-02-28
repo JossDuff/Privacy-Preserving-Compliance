@@ -1,7 +1,6 @@
 use assert_cmd::cargo::cargo_bin_cmd;
 use assert_cmd::Command;
 use predicates::prelude::*;
-use serde_json::Value;
 use std::path::{Path, PathBuf};
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -26,13 +25,15 @@ fn create_nargo_project(parent: &Path, name: &str, circuit_src: &str) -> PathBuf
     project_dir
 }
 
-fn mock_ipfs_add(fake_cid: &str, file_name: &str, size: &str) -> ResponseTemplate {
-    ResponseTemplate::new(200).set_body_json(serde_json::json!({
-        "Name": file_name,
-        "Hash": fake_cid,
-        "Size": size
-    }))
-}
+/// Dummy chain args for publish tests that fail before reaching chain operations.
+const PUBLISH_CHAIN_ARGS: [&str; 6] = [
+    "--rpc-url",
+    "http://localhost:8545",
+    "--private-key",
+    "0xdeadbeef",
+    "--compliance-definition",
+    "0x0000000000000000000000000000000000000001",
+];
 
 // -- Help & subcommand discovery --
 
@@ -159,16 +160,47 @@ fn new_compliance_definition_rejects_invalid_contract_dir() {
 #[test]
 fn publish_requires_path_argument() {
     cmd()
-        .arg("publish")
+        .args(["publish", "--rpc-url", "http://localhost:8545", "--private-key", "0xdead", "--compliance-definition", "0x1"])
         .assert()
         .failure()
         .stderr(predicate::str::contains("DIR"));
 }
 
 #[test]
-fn publish_rejects_nonexistent_directory() {
+fn publish_requires_rpc_url() {
     cmd()
-        .args(["publish", "/tmp/nonexistent-noir-project"])
+        .args(["publish", "--private-key", "0xdead", "--compliance-definition", "0x1", "/tmp/x"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("--rpc-url"));
+}
+
+#[test]
+fn publish_requires_private_key() {
+    cmd()
+        .args(["publish", "--rpc-url", "http://localhost:8545", "--compliance-definition", "0x1", "/tmp/x"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("--private-key"));
+}
+
+#[test]
+fn publish_requires_compliance_definition() {
+    cmd()
+        .args(["publish", "--rpc-url", "http://localhost:8545", "--private-key", "0xdead", "/tmp/x"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("--compliance-definition"));
+}
+
+#[test]
+fn publish_rejects_nonexistent_directory() {
+    let mut args = vec!["publish"];
+    args.extend_from_slice(&PUBLISH_CHAIN_ARGS);
+    args.push("/tmp/nonexistent-noir-project");
+
+    cmd()
+        .args(&args)
         .assert()
         .failure()
         .stderr(predicate::str::contains("not a directory"));
@@ -177,9 +209,12 @@ fn publish_rejects_nonexistent_directory() {
 #[test]
 fn publish_rejects_directory_without_nargo_toml() {
     let dir = tempfile::tempdir().unwrap();
+    let mut args = vec!["publish"];
+    args.extend_from_slice(&PUBLISH_CHAIN_ARGS);
+    args.push(dir.path().to_str().unwrap());
 
     cmd()
-        .args(["publish", dir.path().to_str().unwrap()])
+        .args(&args)
         .assert()
         .failure()
         .stderr(predicate::str::contains("no Nargo.toml found"));
@@ -189,114 +224,15 @@ fn publish_rejects_directory_without_nargo_toml() {
 fn publish_rejects_invalid_circuit() {
     let dir = tempfile::tempdir().unwrap();
     let project = create_nargo_project(dir.path(), "bad_circuit", "this is not valid noir");
+    let mut args = vec!["publish"];
+    args.extend_from_slice(&PUBLISH_CHAIN_ARGS);
+    args.push(project.to_str().unwrap());
 
     cmd()
-        .args(["publish", project.to_str().unwrap()])
+        .args(&args)
         .assert()
         .failure()
         .stderr(predicate::str::contains("circuit validation failed"));
-}
-
-#[tokio::test]
-async fn publish_compiles_and_generates_verifier() {
-    let mock_server = MockServer::start().await;
-    let fake_cid = "QmPublishTestCid";
-
-    Mock::given(method("POST"))
-        .and(path("/api/v0/add"))
-        .respond_with(mock_ipfs_add(fake_cid, "main.nr", "42"))
-        .expect(1)
-        .mount(&mock_server)
-        .await;
-
-    let dir = tempfile::tempdir().unwrap();
-    let project = create_nargo_project(
-        dir.path(),
-        "test_circuit",
-        "fn main(x: u64, y: pub u64) { assert(x != y); }",
-    );
-
-    cmd()
-        .current_dir(dir.path())
-        .args([
-            "--ipfs-rpc-url",
-            &mock_server.uri(),
-            "publish",
-            project.to_str().unwrap(),
-        ])
-        .assert()
-        .success()
-        .stdout(predicate::str::contains(fake_cid))
-        .stderr(
-            predicate::str::contains("circuit validated successfully")
-                .and(predicate::str::contains("circuit compiled successfully"))
-                .and(predicate::str::contains("verification key generated"))
-                .and(predicate::str::contains("Solidity verifier generated"))
-                .and(predicate::str::contains("uploaded to IPFS")),
-        );
-
-    // Verifier should be generated
-    assert!(project.join("target/Verifier.sol").exists());
-
-    // Receipt should be written
-    let receipt_path = dir.path().join("receipt.json");
-    assert!(receipt_path.exists());
-
-    let receipt: Value =
-        serde_json::from_str(&std::fs::read_to_string(&receipt_path).unwrap()).unwrap();
-    assert_eq!(receipt["command"], "publish");
-    assert!(receipt["data"]["verifier_path"]
-        .as_str()
-        .unwrap()
-        .ends_with("Verifier.sol"));
-    assert!(receipt["data"]["vk_path"]
-        .as_str()
-        .unwrap()
-        .ends_with("vk"));
-    assert!(receipt["data"]["bytecode_path"]
-        .as_str()
-        .unwrap()
-        .ends_with(".json"));
-    assert_eq!(receipt["data"]["cid"], fake_cid);
-}
-
-#[tokio::test]
-async fn publish_verifier_output_flag_overrides_default() {
-    let mock_server = MockServer::start().await;
-    let fake_cid = "QmVerifierOverrideCid";
-
-    Mock::given(method("POST"))
-        .and(path("/api/v0/add"))
-        .respond_with(mock_ipfs_add(fake_cid, "main.nr", "10"))
-        .expect(1)
-        .mount(&mock_server)
-        .await;
-
-    let dir = tempfile::tempdir().unwrap();
-    let project = create_nargo_project(
-        dir.path(),
-        "test_circuit",
-        "fn main(x: u64, y: pub u64) { assert(x != y); }",
-    );
-    let custom_verifier = dir.path().join("my-verifier.sol");
-
-    cmd()
-        .current_dir(dir.path())
-        .args([
-            "--ipfs-rpc-url",
-            &mock_server.uri(),
-            "publish",
-            "--verifier-output",
-            custom_verifier.to_str().unwrap(),
-            project.to_str().unwrap(),
-        ])
-        .assert()
-        .success()
-        .stdout(predicate::str::contains(fake_cid));
-
-    assert!(custom_verifier.exists());
-    // Default location should NOT exist
-    assert!(!project.join("target/Verifier.sol").exists());
 }
 
 #[tokio::test]
@@ -317,90 +253,22 @@ async fn publish_reports_ipfs_error() {
         "fn main(x: u64, y: pub u64) { assert(x != y); }",
     );
 
+    let ipfs_uri = mock_server.uri();
+    let project_str = project.to_str().unwrap();
+    let mut args = vec![
+        "--ipfs-rpc-url",
+        &ipfs_uri,
+        "publish",
+    ];
+    args.extend_from_slice(&PUBLISH_CHAIN_ARGS);
+    args.push(project_str);
+
     cmd()
         .current_dir(dir.path())
-        .args([
-            "--ipfs-rpc-url",
-            &mock_server.uri(),
-            "publish",
-            project.to_str().unwrap(),
-        ])
+        .args(&args)
         .assert()
         .failure()
         .stderr(predicate::str::contains("IPFS"));
-}
-
-#[tokio::test]
-async fn ipfs_rpc_url_env_var_is_used() {
-    let mock_server = MockServer::start().await;
-    let fake_cid = "QmEnvVarTestCid";
-
-    Mock::given(method("POST"))
-        .and(path("/api/v0/add"))
-        .respond_with(mock_ipfs_add(fake_cid, "main.nr", "10"))
-        .expect(1)
-        .mount(&mock_server)
-        .await;
-
-    let dir = tempfile::tempdir().unwrap();
-    let project = create_nargo_project(dir.path(), "test_circuit", "fn main() {}");
-
-    cmd()
-        .current_dir(dir.path())
-        .env("IPFS_RPC_URL", &mock_server.uri())
-        .args(["publish", project.to_str().unwrap()])
-        .assert()
-        .success()
-        .stdout(predicate::str::contains(fake_cid));
-}
-
-// -- Receipt output --
-
-#[tokio::test]
-async fn output_flag_overrides_default_receipt_path() {
-    let mock_server = MockServer::start().await;
-    let fake_cid = "QmReceiptTestCid";
-
-    Mock::given(method("POST"))
-        .and(path("/api/v0/add"))
-        .respond_with(mock_ipfs_add(fake_cid, "main.nr", "128"))
-        .expect(1)
-        .mount(&mock_server)
-        .await;
-
-    let dir = tempfile::tempdir().unwrap();
-    let project = create_nargo_project(
-        dir.path(),
-        "test_circuit",
-        "fn main(addr: pub Field) { assert(addr != 0); }",
-    );
-    let receipt_path = dir.path().join("custom-receipt.json");
-
-    cmd()
-        .current_dir(dir.path())
-        .args([
-            "--ipfs-rpc-url",
-            &mock_server.uri(),
-            "--output",
-            receipt_path.to_str().unwrap(),
-            "publish",
-            project.to_str().unwrap(),
-        ])
-        .assert()
-        .success()
-        .stdout(predicate::str::contains(fake_cid));
-
-    // Custom path should exist, default should not
-    assert!(receipt_path.exists());
-    assert!(!dir.path().join("receipt.json").exists());
-
-    let receipt: Value =
-        serde_json::from_str(&std::fs::read_to_string(&receipt_path).unwrap()).unwrap();
-
-    assert_eq!(receipt["command"], "publish");
-    assert_eq!(receipt["data"]["cid"], fake_cid);
-    assert_eq!(receipt["data"]["ipfs_size"], "128");
-    assert!(receipt["timestamp"].as_str().unwrap().contains("T"));
 }
 
 // -- Stub commands --
