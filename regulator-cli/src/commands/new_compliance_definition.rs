@@ -1,9 +1,19 @@
 use anyhow::{bail, Context, Result};
+use serde::Serialize;
 use std::path::PathBuf;
 
 use crate::ipfs;
+use crate::receipt::Receipt;
 
-pub async fn run(file: PathBuf, ipfs_rpc_url: &str) -> Result<()> {
+#[derive(Debug, Serialize)]
+pub struct NewComplianceDefinitionData {
+    pub cid: String,
+    pub file_name: String,
+    pub file_path: String,
+    pub ipfs_size: String,
+}
+
+pub async fn run(file: PathBuf, ipfs_rpc_url: &str, output: &PathBuf) -> Result<()> {
     if !file.exists() {
         bail!("file not found: {}", file.display());
     }
@@ -19,6 +29,16 @@ pub async fn run(file: PathBuf, ipfs_rpc_url: &str) -> Result<()> {
         .context("failed to upload circuit to IPFS")?;
 
     println!("{}", response.hash);
+
+    let data = NewComplianceDefinitionData {
+        cid: response.hash,
+        file_name: response.name,
+        file_path: file.display().to_string(),
+        ipfs_size: response.size,
+    };
+
+    let receipt = Receipt::new("new-compliance-definition", data);
+    receipt.write_to(output)?;
 
     Ok(())
 }

@@ -4,6 +4,7 @@ use std::path::PathBuf;
 
 mod commands;
 mod ipfs;
+mod receipt;
 
 #[derive(Parser)]
 #[command(name = "regulator-cli")]
@@ -12,6 +13,10 @@ struct Cli {
     /// IPFS RPC endpoint URL
     #[arg(long, global = true, env = "IPFS_RPC_URL")]
     ipfs_rpc_url: Option<String>,
+
+    /// Path to write the JSON receipt summarizing the operation [default: ./receipt.json]
+    #[arg(short, long, global = true, value_name = "FILE")]
+    output: Option<PathBuf>,
 
     #[command(subcommand)]
     command: Commands,
@@ -34,6 +39,7 @@ enum Commands {
 }
 
 const DEFAULT_IPFS_RPC_URL: &str = "http://localhost:5001";
+const DEFAULT_RECEIPT_PATH: &str = "receipt.json";
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -43,9 +49,13 @@ async fn main() -> Result<()> {
         .ipfs_rpc_url
         .unwrap_or_else(|| DEFAULT_IPFS_RPC_URL.to_string());
 
+    let output = cli
+        .output
+        .unwrap_or_else(|| PathBuf::from(DEFAULT_RECEIPT_PATH));
+
     match cli.command {
         Commands::NewComplianceDefinition { file } => {
-            commands::new_compliance_definition::run(file, &ipfs_url).await
+            commands::new_compliance_definition::run(file, &ipfs_url, &output).await
         }
         Commands::Init => commands::init::run().await,
         Commands::Publish => commands::publish::run().await,
