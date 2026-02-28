@@ -11,6 +11,30 @@ struct NargoToml {
 #[derive(Deserialize)]
 struct NargoPackage {
     name: String,
+    #[serde(rename = "type")]
+    package_type: Option<String>,
+}
+
+fn read_nargo_toml(project_dir: &Path) -> Result<NargoToml> {
+    let contents = std::fs::read_to_string(project_dir.join("Nargo.toml"))
+        .context("failed to read Nargo.toml")?;
+    toml::from_str(&contents).context("failed to parse Nargo.toml")
+}
+
+/// Determine the main source file for a Nargo project based on its package type.
+pub fn find_source_file(project_dir: &Path) -> Result<PathBuf> {
+    let config = read_nargo_toml(project_dir)?;
+
+    let source_file = match config.package.package_type.as_deref() {
+        Some("lib") => project_dir.join("src/lib.nr"),
+        _ => project_dir.join("src/main.nr"),
+    };
+
+    if !source_file.exists() {
+        bail!("source file not found: {}", source_file.display());
+    }
+
+    Ok(source_file)
 }
 
 /// Run `nargo check` in the given project directory to validate the circuit compiles.
@@ -42,9 +66,7 @@ pub fn compile(project_dir: &Path) -> Result<PathBuf> {
         bail!("nargo compile failed:\n{stderr}");
     }
 
-    let nargo_toml = std::fs::read_to_string(project_dir.join("Nargo.toml"))
-        .context("failed to read Nargo.toml")?;
-    let config: NargoToml = toml::from_str(&nargo_toml).context("failed to parse Nargo.toml")?;
+    let config = read_nargo_toml(project_dir)?;
 
     let bytecode_path = project_dir
         .join("target")

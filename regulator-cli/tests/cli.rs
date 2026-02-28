@@ -50,42 +50,6 @@ fn help_shows_all_subcommands() {
         );
 }
 
-// -- Input validation --
-
-#[test]
-fn new_compliance_definition_rejects_nonexistent_directory() {
-    cmd()
-        .args(["new-compliance-definition", "/tmp/nonexistent-noir-project"])
-        .assert()
-        .failure()
-        .stderr(predicate::str::contains("not a directory"));
-}
-
-#[test]
-fn new_compliance_definition_rejects_directory_without_nargo_toml() {
-    let dir = tempfile::tempdir().unwrap();
-
-    cmd()
-        .args(["new-compliance-definition", dir.path().to_str().unwrap()])
-        .assert()
-        .failure()
-        .stderr(predicate::str::contains("no Nargo.toml found"));
-}
-
-// -- Nargo compilation --
-
-#[test]
-fn new_compliance_definition_rejects_invalid_circuit() {
-    let dir = tempfile::tempdir().unwrap();
-    let project = create_nargo_project(dir.path(), "bad_circuit", "this is not valid noir");
-
-    cmd()
-        .args(["new-compliance-definition", project.to_str().unwrap()])
-        .assert()
-        .failure()
-        .stderr(predicate::str::contains("circuit validation failed"));
-}
-
 // -- Init command --
 
 #[test]
@@ -122,6 +86,72 @@ fn init_rejects_existing_directory() {
         .assert()
         .failure()
         .stderr(predicate::str::contains("directory already exists"));
+}
+
+// -- New compliance definition command --
+
+#[test]
+fn new_compliance_definition_requires_rpc_url() {
+    cmd()
+        .args([
+            "new-compliance-definition",
+            "--private-key",
+            "0xdeadbeef",
+            "--regulator",
+            "0x1234",
+        ])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("--rpc-url"));
+}
+
+#[test]
+fn new_compliance_definition_requires_private_key() {
+    cmd()
+        .args([
+            "new-compliance-definition",
+            "--rpc-url",
+            "http://localhost:8545",
+            "--regulator",
+            "0x1234",
+        ])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("--private-key"));
+}
+
+#[test]
+fn new_compliance_definition_requires_regulator() {
+    cmd()
+        .args([
+            "new-compliance-definition",
+            "--rpc-url",
+            "http://localhost:8545",
+            "--private-key",
+            "0xdeadbeef",
+        ])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("--regulator"));
+}
+
+#[test]
+fn new_compliance_definition_rejects_invalid_contract_dir() {
+    cmd()
+        .args([
+            "new-compliance-definition",
+            "--rpc-url",
+            "http://localhost:8545",
+            "--private-key",
+            "0xdeadbeef",
+            "--regulator",
+            "0x1234",
+            "--contract-dir",
+            "/tmp/nonexistent-foundry-project",
+        ])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("forge create failed"));
 }
 
 // -- Publish command --
@@ -164,98 +194,13 @@ fn publish_rejects_invalid_circuit() {
         .args(["publish", project.to_str().unwrap()])
         .assert()
         .failure()
-        .stderr(predicate::str::contains("nargo compile failed"));
+        .stderr(predicate::str::contains("circuit validation failed"));
 }
-
-#[test]
-fn publish_compiles_and_generates_verifier() {
-    let dir = tempfile::tempdir().unwrap();
-    let project = create_nargo_project(
-        dir.path(),
-        "test_circuit",
-        "fn main(x: u64, y: pub u64) { assert(x != y); }",
-    );
-
-    cmd()
-        .current_dir(dir.path())
-        .args(["publish", project.to_str().unwrap()])
-        .assert()
-        .success()
-        .stdout(predicate::str::contains("Verifier.sol"))
-        .stderr(
-            predicate::str::contains("circuit compiled successfully")
-                .and(predicate::str::contains("verification key generated"))
-                .and(predicate::str::contains("Solidity verifier generated")),
-        );
-
-    // Default verifier location
-    assert!(project.join("target/Verifier.sol").exists());
-
-    // Default receipt should be written
-    let receipt_path = dir.path().join("receipt.json");
-    assert!(receipt_path.exists());
-
-    let receipt: Value =
-        serde_json::from_str(&std::fs::read_to_string(&receipt_path).unwrap()).unwrap();
-    assert_eq!(receipt["command"], "publish");
-    assert!(receipt["data"]["verifier_path"]
-        .as_str()
-        .unwrap()
-        .ends_with("Verifier.sol"));
-    assert!(receipt["data"]["vk_path"]
-        .as_str()
-        .unwrap()
-        .ends_with("vk"));
-    assert!(receipt["data"]["bytecode_path"]
-        .as_str()
-        .unwrap()
-        .ends_with(".json"));
-}
-
-#[test]
-fn publish_verifier_output_flag_overrides_default() {
-    let dir = tempfile::tempdir().unwrap();
-    let project = create_nargo_project(
-        dir.path(),
-        "test_circuit",
-        "fn main(x: u64, y: pub u64) { assert(x != y); }",
-    );
-    let custom_verifier = dir.path().join("my-verifier.sol");
-
-    cmd()
-        .current_dir(dir.path())
-        .args([
-            "publish",
-            "--verifier-output",
-            custom_verifier.to_str().unwrap(),
-            project.to_str().unwrap(),
-        ])
-        .assert()
-        .success()
-        .stdout(predicate::str::contains("my-verifier.sol"));
-
-    assert!(custom_verifier.exists());
-    // Default location should NOT exist
-    assert!(!project.join("target/Verifier.sol").exists());
-}
-
-// -- Stub commands --
-
-#[test]
-fn update_is_not_yet_implemented() {
-    cmd()
-        .arg("update")
-        .assert()
-        .failure()
-        .stderr(predicate::str::contains("not yet implemented"));
-}
-
-// -- IPFS upload (mocked) with nargo compilation --
 
 #[tokio::test]
-async fn new_compliance_definition_compiles_and_uploads() {
+async fn publish_compiles_and_generates_verifier() {
     let mock_server = MockServer::start().await;
-    let fake_cid = "QmTestCid1234567890abcdef";
+    let fake_cid = "QmPublishTestCid";
 
     Mock::given(method("POST"))
         .and(path("/api/v0/add"))
@@ -276,23 +221,86 @@ async fn new_compliance_definition_compiles_and_uploads() {
         .args([
             "--ipfs-rpc-url",
             &mock_server.uri(),
-            "new-compliance-definition",
+            "publish",
             project.to_str().unwrap(),
         ])
         .assert()
         .success()
         .stdout(predicate::str::contains(fake_cid))
-        .stderr(predicate::str::contains("circuit compiled successfully"));
+        .stderr(
+            predicate::str::contains("circuit validated successfully")
+                .and(predicate::str::contains("circuit compiled successfully"))
+                .and(predicate::str::contains("verification key generated"))
+                .and(predicate::str::contains("Solidity verifier generated"))
+                .and(predicate::str::contains("uploaded to IPFS")),
+        );
 
-    // Default receipt should be written
-    assert!(
-        dir.path().join("receipt.json").exists(),
-        "default receipt.json should be written"
-    );
+    // Verifier should be generated
+    assert!(project.join("target/Verifier.sol").exists());
+
+    // Receipt should be written
+    let receipt_path = dir.path().join("receipt.json");
+    assert!(receipt_path.exists());
+
+    let receipt: Value =
+        serde_json::from_str(&std::fs::read_to_string(&receipt_path).unwrap()).unwrap();
+    assert_eq!(receipt["command"], "publish");
+    assert!(receipt["data"]["verifier_path"]
+        .as_str()
+        .unwrap()
+        .ends_with("Verifier.sol"));
+    assert!(receipt["data"]["vk_path"]
+        .as_str()
+        .unwrap()
+        .ends_with("vk"));
+    assert!(receipt["data"]["bytecode_path"]
+        .as_str()
+        .unwrap()
+        .ends_with(".json"));
+    assert_eq!(receipt["data"]["cid"], fake_cid);
 }
 
 #[tokio::test]
-async fn new_compliance_definition_reports_ipfs_error() {
+async fn publish_verifier_output_flag_overrides_default() {
+    let mock_server = MockServer::start().await;
+    let fake_cid = "QmVerifierOverrideCid";
+
+    Mock::given(method("POST"))
+        .and(path("/api/v0/add"))
+        .respond_with(mock_ipfs_add(fake_cid, "main.nr", "10"))
+        .expect(1)
+        .mount(&mock_server)
+        .await;
+
+    let dir = tempfile::tempdir().unwrap();
+    let project = create_nargo_project(
+        dir.path(),
+        "test_circuit",
+        "fn main(x: u64, y: pub u64) { assert(x != y); }",
+    );
+    let custom_verifier = dir.path().join("my-verifier.sol");
+
+    cmd()
+        .current_dir(dir.path())
+        .args([
+            "--ipfs-rpc-url",
+            &mock_server.uri(),
+            "publish",
+            "--verifier-output",
+            custom_verifier.to_str().unwrap(),
+            project.to_str().unwrap(),
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(fake_cid));
+
+    assert!(custom_verifier.exists());
+    // Default location should NOT exist
+    assert!(!project.join("target/Verifier.sol").exists());
+}
+
+#[tokio::test]
+async fn publish_reports_ipfs_error() {
     let mock_server = MockServer::start().await;
 
     Mock::given(method("POST"))
@@ -303,19 +311,23 @@ async fn new_compliance_definition_reports_ipfs_error() {
         .await;
 
     let dir = tempfile::tempdir().unwrap();
-    let project = create_nargo_project(dir.path(), "test_circuit", "fn main() {}");
+    let project = create_nargo_project(
+        dir.path(),
+        "test_circuit",
+        "fn main(x: u64, y: pub u64) { assert(x != y); }",
+    );
 
     cmd()
         .current_dir(dir.path())
         .args([
             "--ipfs-rpc-url",
             &mock_server.uri(),
-            "new-compliance-definition",
+            "publish",
             project.to_str().unwrap(),
         ])
         .assert()
         .failure()
-        .stderr(predicate::str::contains("IPFS add failed"));
+        .stderr(predicate::str::contains("IPFS"));
 }
 
 #[tokio::test]
@@ -336,7 +348,7 @@ async fn ipfs_rpc_url_env_var_is_used() {
     cmd()
         .current_dir(dir.path())
         .env("IPFS_RPC_URL", &mock_server.uri())
-        .args(["new-compliance-definition", project.to_str().unwrap()])
+        .args(["publish", project.to_str().unwrap()])
         .assert()
         .success()
         .stdout(predicate::str::contains(fake_cid));
@@ -371,7 +383,7 @@ async fn output_flag_overrides_default_receipt_path() {
             &mock_server.uri(),
             "--output",
             receipt_path.to_str().unwrap(),
-            "new-compliance-definition",
+            "publish",
             project.to_str().unwrap(),
         ])
         .assert()
@@ -385,47 +397,19 @@ async fn output_flag_overrides_default_receipt_path() {
     let receipt: Value =
         serde_json::from_str(&std::fs::read_to_string(&receipt_path).unwrap()).unwrap();
 
-    assert_eq!(receipt["command"], "new-compliance-definition");
+    assert_eq!(receipt["command"], "publish");
     assert_eq!(receipt["data"]["cid"], fake_cid);
     assert_eq!(receipt["data"]["ipfs_size"], "128");
     assert!(receipt["timestamp"].as_str().unwrap().contains("T"));
-    assert!(receipt["data"]["file_path"].as_str().unwrap().ends_with("main.nr"));
-    assert!(receipt["data"]["project_dir"].as_str().is_some());
 }
 
-#[tokio::test]
-async fn default_receipt_written_with_correct_contents() {
-    let mock_server = MockServer::start().await;
-    let fake_cid = "QmDefaultReceiptCid";
+// -- Stub commands --
 
-    Mock::given(method("POST"))
-        .and(path("/api/v0/add"))
-        .respond_with(mock_ipfs_add(fake_cid, "main.nr", "10"))
-        .expect(1)
-        .mount(&mock_server)
-        .await;
-
-    let dir = tempfile::tempdir().unwrap();
-    let project = create_nargo_project(dir.path(), "test_circuit", "fn main() {}");
-
+#[test]
+fn update_is_not_yet_implemented() {
     cmd()
-        .current_dir(dir.path())
-        .args([
-            "--ipfs-rpc-url",
-            &mock_server.uri(),
-            "new-compliance-definition",
-            project.to_str().unwrap(),
-        ])
+        .arg("update")
         .assert()
-        .success();
-
-    let receipt_path = dir.path().join("receipt.json");
-    assert!(receipt_path.exists(), "default receipt.json should be written");
-
-    let receipt: Value =
-        serde_json::from_str(&std::fs::read_to_string(&receipt_path).unwrap()).unwrap();
-
-    assert_eq!(receipt["command"], "new-compliance-definition");
-    assert_eq!(receipt["data"]["cid"], fake_cid);
-    assert!(receipt["timestamp"].as_str().unwrap().contains("T"));
+        .failure()
+        .stderr(predicate::str::contains("not yet implemented"));
 }

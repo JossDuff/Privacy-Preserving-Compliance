@@ -4,6 +4,7 @@ use std::path::PathBuf;
 
 mod bb;
 mod commands;
+mod forge;
 mod ipfs;
 mod nargo;
 mod receipt;
@@ -26,18 +27,30 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Validate and upload a Noir circuit to IPFS as a new compliance definition
+    /// Deploy a new ComplianceDefinition contract on-chain
     NewComplianceDefinition {
-        /// Path to the Noir project directory (containing Nargo.toml)
-        #[arg(value_name = "DIR")]
-        path: PathBuf,
+        /// RPC URL of the target chain
+        #[arg(long, env = "RPC_URL")]
+        rpc_url: String,
+
+        /// Private key for the deployer account
+        #[arg(long, env = "PRIVATE_KEY")]
+        private_key: String,
+
+        /// Address of the regulator that will control the compliance definition
+        #[arg(long)]
+        regulator: String,
+
+        /// Path to the Foundry project containing ComplianceDefinition.sol
+        #[arg(long, default_value = "verifier-base-contract", value_name = "DIR")]
+        contract_dir: PathBuf,
     },
     /// Initialize a new Noir compliance definition project
     Init {
         /// Name for the new project
         name: String,
     },
-    /// Compile a Noir circuit and generate a Solidity verifier contract
+    /// Validate, compile, and publish a Noir circuit as a Solidity verifier
     Publish {
         /// Path to the Noir project directory (containing Nargo.toml)
         #[arg(value_name = "DIR")]
@@ -67,14 +80,26 @@ async fn main() -> Result<()> {
         .unwrap_or_else(|| PathBuf::from(DEFAULT_RECEIPT_PATH));
 
     match cli.command {
-        Commands::NewComplianceDefinition { path } => {
-            commands::new_compliance_definition::run(path, &ipfs_url, &output).await
+        Commands::NewComplianceDefinition {
+            rpc_url,
+            private_key,
+            regulator,
+            contract_dir,
+        } => {
+            commands::new_compliance_definition::run(
+                &rpc_url,
+                &private_key,
+                &regulator,
+                &contract_dir,
+                &output,
+            )
+            .await
         }
         Commands::Init { name } => commands::init::run(&name).await,
         Commands::Publish {
             path,
             verifier_output,
-        } => commands::publish::run(path, verifier_output, &output).await,
+        } => commands::publish::run(path, verifier_output, &ipfs_url, &output).await,
         Commands::Update => commands::update::run().await,
     }
 }
