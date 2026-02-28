@@ -69,11 +69,24 @@ cargo build --bin proof-manager
 cargo run --release --bin regulator-cli
 cargo run --release --bin proof-manager
 
-# Circuits
+# NOIR CIRCUITS
 cd circuits/hello_world
 nargo check
 # Add circuit input to circuits/hello_world/Prover.toml
+# Then execute to generate the witness
 nargo execute
+# generate proof and write the verification key to a file
+bb prove -b ./target/hello_world.json -w ./target/hello_world.gz --write_vk -o target
+# verify the proof using the vk
+bb verify -p ./target/proof -k ./target/vk
+
+# DEPLOYING NOIR CIRCUIT VERIFIER
+# Generate the verification key. You need to pass the `--oracle_hash keccak` flag when generating vkey and proving
+# to instruct bb to use keccak as the hash function, which is more optimal in Solidity
+bb write_vk -b ./target/hello_world.json -o ./target --oracle_hash keccak
+# Generate the Solidity verifier from the vkey
+bb write_solidity_verifier -k ./target/vk -o ./target/Verifier.sol
+
 ```
 
 
