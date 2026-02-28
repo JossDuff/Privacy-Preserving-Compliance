@@ -124,16 +124,122 @@ fn init_rejects_existing_directory() {
         .stderr(predicate::str::contains("directory already exists"));
 }
 
-// -- Stub commands --
+// -- Publish command --
 
 #[test]
-fn publish_is_not_yet_implemented() {
+fn publish_requires_path_argument() {
     cmd()
         .arg("publish")
         .assert()
         .failure()
-        .stderr(predicate::str::contains("not yet implemented"));
+        .stderr(predicate::str::contains("DIR"));
 }
+
+#[test]
+fn publish_rejects_nonexistent_directory() {
+    cmd()
+        .args(["publish", "/tmp/nonexistent-noir-project"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("not a directory"));
+}
+
+#[test]
+fn publish_rejects_directory_without_nargo_toml() {
+    let dir = tempfile::tempdir().unwrap();
+
+    cmd()
+        .args(["publish", dir.path().to_str().unwrap()])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("no Nargo.toml found"));
+}
+
+#[test]
+fn publish_rejects_invalid_circuit() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = create_nargo_project(dir.path(), "bad_circuit", "this is not valid noir");
+
+    cmd()
+        .args(["publish", project.to_str().unwrap()])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("nargo compile failed"));
+}
+
+#[test]
+fn publish_compiles_and_generates_verifier() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = create_nargo_project(
+        dir.path(),
+        "test_circuit",
+        "fn main(x: u64, y: pub u64) { assert(x != y); }",
+    );
+
+    cmd()
+        .current_dir(dir.path())
+        .args(["publish", project.to_str().unwrap()])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Verifier.sol"))
+        .stderr(
+            predicate::str::contains("circuit compiled successfully")
+                .and(predicate::str::contains("verification key generated"))
+                .and(predicate::str::contains("Solidity verifier generated")),
+        );
+
+    // Default verifier location
+    assert!(project.join("target/Verifier.sol").exists());
+
+    // Default receipt should be written
+    let receipt_path = dir.path().join("receipt.json");
+    assert!(receipt_path.exists());
+
+    let receipt: Value =
+        serde_json::from_str(&std::fs::read_to_string(&receipt_path).unwrap()).unwrap();
+    assert_eq!(receipt["command"], "publish");
+    assert!(receipt["data"]["verifier_path"]
+        .as_str()
+        .unwrap()
+        .ends_with("Verifier.sol"));
+    assert!(receipt["data"]["vk_path"]
+        .as_str()
+        .unwrap()
+        .ends_with("vk"));
+    assert!(receipt["data"]["bytecode_path"]
+        .as_str()
+        .unwrap()
+        .ends_with(".json"));
+}
+
+#[test]
+fn publish_verifier_output_flag_overrides_default() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = create_nargo_project(
+        dir.path(),
+        "test_circuit",
+        "fn main(x: u64, y: pub u64) { assert(x != y); }",
+    );
+    let custom_verifier = dir.path().join("my-verifier.sol");
+
+    cmd()
+        .current_dir(dir.path())
+        .args([
+            "publish",
+            "--verifier-output",
+            custom_verifier.to_str().unwrap(),
+            project.to_str().unwrap(),
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("my-verifier.sol"));
+
+    assert!(custom_verifier.exists());
+    // Default location should NOT exist
+    assert!(!project.join("target/Verifier.sol").exists());
+}
+
+// -- Stub commands --
 
 #[test]
 fn update_is_not_yet_implemented() {

@@ -2,6 +2,7 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
+mod bb;
 mod commands;
 mod ipfs;
 mod nargo;
@@ -36,8 +37,16 @@ enum Commands {
         /// Name for the new project
         name: String,
     },
-    /// Publish a compliance definition (deploy verifier contract) TODO
-    Publish,
+    /// Compile a Noir circuit and generate a Solidity verifier contract
+    Publish {
+        /// Path to the Noir project directory (containing Nargo.toml)
+        #[arg(value_name = "DIR")]
+        path: PathBuf,
+
+        /// Path to write the generated Solidity verifier [default: <DIR>/target/Verifier.sol]
+        #[arg(long, value_name = "FILE")]
+        verifier_output: Option<PathBuf>,
+    },
     /// Update an existing compliance definition TODO
     Update,
 }
@@ -62,7 +71,10 @@ async fn main() -> Result<()> {
             commands::new_compliance_definition::run(path, &ipfs_url, &output).await
         }
         Commands::Init { name } => commands::init::run(&name).await,
-        Commands::Publish => commands::publish::run().await,
+        Commands::Publish {
+            path,
+            verifier_output,
+        } => commands::publish::run(path, verifier_output, &output).await,
         Commands::Update => commands::update::run().await,
     }
 }
