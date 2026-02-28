@@ -31,8 +31,11 @@ enum Commands {
         #[arg(value_name = "DIR")]
         path: PathBuf,
     },
-    /// Initialize a new compliance definition project TODO
-    Init,
+    /// Initialize a new Noir compliance definition project
+    Init {
+        /// Name for the new project
+        name: String,
+    },
     /// Publish a compliance definition (deploy verifier contract) TODO
     Publish,
     /// Update an existing compliance definition TODO
@@ -58,7 +61,7 @@ async fn main() -> Result<()> {
         Commands::NewComplianceDefinition { path } => {
             commands::new_compliance_definition::run(path, &ipfs_url, &output).await
         }
-        Commands::Init => commands::init::run().await,
+        Commands::Init { name } => commands::init::run(&name).await,
         Commands::Publish => commands::publish::run().await,
         Commands::Update => commands::update::run().await,
     }

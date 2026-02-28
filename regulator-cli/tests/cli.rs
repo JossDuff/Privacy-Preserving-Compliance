@@ -86,16 +86,45 @@ fn new_compliance_definition_rejects_invalid_circuit() {
         .stderr(predicate::str::contains("circuit validation failed"));
 }
 
-// -- Stub commands --
+// -- Init command --
 
 #[test]
-fn init_is_not_yet_implemented() {
+fn init_creates_noir_project() {
+    let dir = tempfile::tempdir().unwrap();
+
     cmd()
-        .arg("init")
+        .current_dir(dir.path())
+        .args(["init", "my_circuit"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("created compliance definition project: my_circuit/"));
+
+    let project_dir = dir.path().join("my_circuit");
+    assert!(project_dir.join("Nargo.toml").exists());
+    assert!(project_dir.join("src/main.nr").exists());
+
+    let nargo_toml = std::fs::read_to_string(project_dir.join("Nargo.toml")).unwrap();
+    assert!(nargo_toml.contains("name = \"my_circuit\""));
+    assert!(nargo_toml.contains("type = \"bin\""));
+
+    let main_nr = std::fs::read_to_string(project_dir.join("src/main.nr")).unwrap();
+    assert!(main_nr.contains("fn main"));
+}
+
+#[test]
+fn init_rejects_existing_directory() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::create_dir(dir.path().join("existing")).unwrap();
+
+    cmd()
+        .current_dir(dir.path())
+        .args(["init", "existing"])
         .assert()
         .failure()
-        .stderr(predicate::str::contains("not yet implemented"));
+        .stderr(predicate::str::contains("directory already exists"));
 }
+
+// -- Stub commands --
 
 #[test]
 fn publish_is_not_yet_implemented() {
