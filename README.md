@@ -1,6 +1,8 @@
 # Privacy-Preserving-Compliance
 Prototype implementation of masters thesis framework `Privacy Preserving Compliance`.  The current draft of my thesis can be found at [https://github.com/JossDuff/thesis](https://github.com/JossDuff/thesis).
 
+This code is for demonstration purposes only.  It is not audited and should not be used in production environments.
+
 ## Overview
 
 This repository contains the implementation of a framework for composable privacy-preserving compliance on blockchain systems. The framework enables regulatory bodies to publish compliance definitions, applications to require compliance proofs, and users to prove compliance without revealing private transaction data.
