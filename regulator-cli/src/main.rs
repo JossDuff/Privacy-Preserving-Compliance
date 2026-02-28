@@ -4,6 +4,7 @@ use std::path::PathBuf;
 
 mod commands;
 mod ipfs;
+mod nargo;
 mod receipt;
 
 #[derive(Parser)]
@@ -24,11 +25,11 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Upload a Noir circuit to IPFS as a new compliance definition
+    /// Validate and upload a Noir circuit to IPFS as a new compliance definition
     NewComplianceDefinition {
-        /// Path to the .nr circuit file
-        #[arg(value_name = "FILE")]
-        file: PathBuf,
+        /// Path to the Noir project directory (containing Nargo.toml)
+        #[arg(value_name = "DIR")]
+        path: PathBuf,
     },
     /// Initialize a new compliance definition project TODO
     Init,
@@ -54,8 +55,8 @@ async fn main() -> Result<()> {
         .unwrap_or_else(|| PathBuf::from(DEFAULT_RECEIPT_PATH));
 
     match cli.command {
-        Commands::NewComplianceDefinition { file } => {
-            commands::new_compliance_definition::run(file, &ipfs_url, &output).await
+        Commands::NewComplianceDefinition { path } => {
+            commands::new_compliance_definition::run(path, &ipfs_url, &output).await
         }
         Commands::Init => commands::init::run().await,
         Commands::Publish => commands::publish::run().await,

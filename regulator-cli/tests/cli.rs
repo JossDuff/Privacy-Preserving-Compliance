@@ -2,12 +2,36 @@ use assert_cmd::cargo::cargo_bin_cmd;
 use assert_cmd::Command;
 use predicates::prelude::*;
 use serde_json::Value;
-use std::io::Write;
+use std::path::{Path, PathBuf};
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 fn cmd() -> Command {
     cargo_bin_cmd!("regulator-cli")
+}
+
+/// Create a minimal valid Nargo project in a temp directory.
+/// Returns (tempdir, project_path) -- keep tempdir alive for the test duration.
+fn create_nargo_project(parent: &Path, name: &str, circuit_src: &str) -> PathBuf {
+    let project_dir = parent.join(name);
+    std::fs::create_dir_all(project_dir.join("src")).unwrap();
+    std::fs::write(
+        project_dir.join("Nargo.toml"),
+        format!(
+            "[package]\nname = \"{name}\"\ntype = \"bin\"\nauthors = [\"test\"]\n\n[dependencies]\n"
+        ),
+    )
+    .unwrap();
+    std::fs::write(project_dir.join("src/main.nr"), circuit_src).unwrap();
+    project_dir
+}
+
+fn mock_ipfs_add(fake_cid: &str, file_name: &str, size: &str) -> ResponseTemplate {
+    ResponseTemplate::new(200).set_body_json(serde_json::json!({
+        "Name": file_name,
+        "Hash": fake_cid,
+        "Size": size
+    }))
 }
 
 // -- Help & subcommand discovery --
@@ -26,42 +50,40 @@ fn help_shows_all_subcommands() {
         );
 }
 
-// -- File validation --
+// -- Input validation --
 
 #[test]
-fn new_compliance_definition_rejects_missing_file() {
+fn new_compliance_definition_rejects_nonexistent_directory() {
     cmd()
-        .args(["new-compliance-definition", "nonexistent.nr"])
+        .args(["new-compliance-definition", "/tmp/nonexistent-noir-project"])
         .assert()
         .failure()
-        .stderr(predicate::str::contains("file not found: nonexistent.nr"));
+        .stderr(predicate::str::contains("not a directory"));
 }
 
 #[test]
-fn new_compliance_definition_rejects_wrong_extension() {
-    let tmp = tempfile::Builder::new()
-        .suffix(".txt")
-        .tempfile()
-        .unwrap();
-
-    cmd()
-        .args(["new-compliance-definition", tmp.path().to_str().unwrap()])
-        .assert()
-        .failure()
-        .stderr(predicate::str::contains("expected a .nr file, got .txt"));
-}
-
-#[test]
-fn new_compliance_definition_rejects_no_extension() {
+fn new_compliance_definition_rejects_directory_without_nargo_toml() {
     let dir = tempfile::tempdir().unwrap();
-    let no_ext = dir.path().join("circuit");
-    std::fs::write(&no_ext, "fn main() {}").unwrap();
 
     cmd()
-        .args(["new-compliance-definition", no_ext.to_str().unwrap()])
+        .args(["new-compliance-definition", dir.path().to_str().unwrap()])
         .assert()
         .failure()
-        .stderr(predicate::str::contains("file has no extension, expected .nr"));
+        .stderr(predicate::str::contains("no Nargo.toml found"));
+}
+
+// -- Nargo compilation --
+
+#[test]
+fn new_compliance_definition_rejects_invalid_circuit() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = create_nargo_project(dir.path(), "bad_circuit", "this is not valid noir");
+
+    cmd()
+        .args(["new-compliance-definition", project.to_str().unwrap()])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("circuit validation failed"));
 }
 
 // -- Stub commands --
@@ -93,18 +115,10 @@ fn update_is_not_yet_implemented() {
         .stderr(predicate::str::contains("not yet implemented"));
 }
 
-// -- IPFS upload (mocked) --
-
-fn mock_ipfs_add(fake_cid: &str, file_name: &str, size: &str) -> ResponseTemplate {
-    ResponseTemplate::new(200).set_body_json(serde_json::json!({
-        "Name": file_name,
-        "Hash": fake_cid,
-        "Size": size
-    }))
-}
+// -- IPFS upload (mocked) with nargo compilation --
 
 #[tokio::test]
-async fn new_compliance_definition_uploads_to_ipfs_and_prints_cid() {
+async fn new_compliance_definition_compiles_and_uploads() {
     let mock_server = MockServer::start().await;
     let fake_cid = "QmTestCid1234567890abcdef";
 
@@ -116,12 +130,11 @@ async fn new_compliance_definition_uploads_to_ipfs_and_prints_cid() {
         .await;
 
     let dir = tempfile::tempdir().unwrap();
-    let circuit_file = dir.path().join("main.nr");
-    {
-        let mut f = std::fs::File::create(&circuit_file).unwrap();
-        writeln!(f, "fn main(x: u64, y: pub u64) {{ assert(x != y); }}").unwrap();
-    }
-    let receipt_path = dir.path().join("receipt.json");
+    let project = create_nargo_project(
+        dir.path(),
+        "test_circuit",
+        "fn main(x: u64, y: pub u64) { assert(x != y); }",
+    );
 
     cmd()
         .current_dir(dir.path())
@@ -129,14 +142,18 @@ async fn new_compliance_definition_uploads_to_ipfs_and_prints_cid() {
             "--ipfs-rpc-url",
             &mock_server.uri(),
             "new-compliance-definition",
-            circuit_file.to_str().unwrap(),
+            project.to_str().unwrap(),
         ])
         .assert()
         .success()
-        .stdout(predicate::str::contains(fake_cid));
+        .stdout(predicate::str::contains(fake_cid))
+        .stderr(predicate::str::contains("circuit compiled successfully"));
 
     // Default receipt should be written
-    assert!(receipt_path.exists(), "default receipt.json should be written");
+    assert!(
+        dir.path().join("receipt.json").exists(),
+        "default receipt.json should be written"
+    );
 }
 
 #[tokio::test]
@@ -151,8 +168,7 @@ async fn new_compliance_definition_reports_ipfs_error() {
         .await;
 
     let dir = tempfile::tempdir().unwrap();
-    let circuit_file = dir.path().join("test.nr");
-    std::fs::write(&circuit_file, "fn main() {}").unwrap();
+    let project = create_nargo_project(dir.path(), "test_circuit", "fn main() {}");
 
     cmd()
         .current_dir(dir.path())
@@ -160,7 +176,7 @@ async fn new_compliance_definition_reports_ipfs_error() {
             "--ipfs-rpc-url",
             &mock_server.uri(),
             "new-compliance-definition",
-            circuit_file.to_str().unwrap(),
+            project.to_str().unwrap(),
         ])
         .assert()
         .failure()
@@ -174,22 +190,18 @@ async fn ipfs_rpc_url_env_var_is_used() {
 
     Mock::given(method("POST"))
         .and(path("/api/v0/add"))
-        .respond_with(mock_ipfs_add(fake_cid, "circuit.nr", "10"))
+        .respond_with(mock_ipfs_add(fake_cid, "main.nr", "10"))
         .expect(1)
         .mount(&mock_server)
         .await;
 
     let dir = tempfile::tempdir().unwrap();
-    let circuit_file = dir.path().join("circuit.nr");
-    std::fs::write(&circuit_file, "fn main() {}").unwrap();
+    let project = create_nargo_project(dir.path(), "test_circuit", "fn main() {}");
 
     cmd()
         .current_dir(dir.path())
         .env("IPFS_RPC_URL", &mock_server.uri())
-        .args([
-            "new-compliance-definition",
-            circuit_file.to_str().unwrap(),
-        ])
+        .args(["new-compliance-definition", project.to_str().unwrap()])
         .assert()
         .success()
         .stdout(predicate::str::contains(fake_cid));
@@ -204,17 +216,17 @@ async fn output_flag_overrides_default_receipt_path() {
 
     Mock::given(method("POST"))
         .and(path("/api/v0/add"))
-        .respond_with(mock_ipfs_add(fake_cid, "sanction.nr", "128"))
+        .respond_with(mock_ipfs_add(fake_cid, "main.nr", "128"))
         .expect(1)
         .mount(&mock_server)
         .await;
 
     let dir = tempfile::tempdir().unwrap();
-    let circuit_file = dir.path().join("sanction.nr");
-    {
-        let mut f = std::fs::File::create(&circuit_file).unwrap();
-        writeln!(f, "fn main(addr: pub Field) {{ assert(addr != 0); }}").unwrap();
-    }
+    let project = create_nargo_project(
+        dir.path(),
+        "test_circuit",
+        "fn main(addr: pub Field) { assert(addr != 0); }",
+    );
     let receipt_path = dir.path().join("custom-receipt.json");
 
     cmd()
@@ -225,7 +237,7 @@ async fn output_flag_overrides_default_receipt_path() {
             "--output",
             receipt_path.to_str().unwrap(),
             "new-compliance-definition",
-            circuit_file.to_str().unwrap(),
+            project.to_str().unwrap(),
         ])
         .assert()
         .success()
@@ -240,10 +252,10 @@ async fn output_flag_overrides_default_receipt_path() {
 
     assert_eq!(receipt["command"], "new-compliance-definition");
     assert_eq!(receipt["data"]["cid"], fake_cid);
-    assert_eq!(receipt["data"]["file_name"], "sanction.nr");
     assert_eq!(receipt["data"]["ipfs_size"], "128");
     assert!(receipt["timestamp"].as_str().unwrap().contains("T"));
-    assert!(receipt["data"]["file_path"].as_str().unwrap().ends_with("sanction.nr"));
+    assert!(receipt["data"]["file_path"].as_str().unwrap().ends_with("main.nr"));
+    assert!(receipt["data"]["project_dir"].as_str().is_some());
 }
 
 #[tokio::test]
@@ -253,14 +265,13 @@ async fn default_receipt_written_with_correct_contents() {
 
     Mock::given(method("POST"))
         .and(path("/api/v0/add"))
-        .respond_with(mock_ipfs_add(fake_cid, "test.nr", "10"))
+        .respond_with(mock_ipfs_add(fake_cid, "main.nr", "10"))
         .expect(1)
         .mount(&mock_server)
         .await;
 
     let dir = tempfile::tempdir().unwrap();
-    let circuit_file = dir.path().join("test.nr");
-    std::fs::write(&circuit_file, "fn main() {}").unwrap();
+    let project = create_nargo_project(dir.path(), "test_circuit", "fn main() {}");
 
     cmd()
         .current_dir(dir.path())
@@ -268,7 +279,7 @@ async fn default_receipt_written_with_correct_contents() {
             "--ipfs-rpc-url",
             &mock_server.uri(),
             "new-compliance-definition",
-            circuit_file.to_str().unwrap(),
+            project.to_str().unwrap(),
         ])
         .assert()
         .success();
