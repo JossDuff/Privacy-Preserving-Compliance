@@ -60,7 +60,7 @@ privacy-preserving-compliance/
 │   └── src/
 ```
 
-# Running
+# Developing
 
 ```bash 
 # Build 
