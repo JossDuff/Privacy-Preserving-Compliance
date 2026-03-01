@@ -111,6 +111,9 @@ const DEFAULT_RECEIPTS_DIR: &str = "receipts";
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Load .env file if present (before clap parses, so env vars are available).
+    dotenv::dotenv().ok();
+
     let cli = Cli::parse();
 
     let ipfs_url = cli

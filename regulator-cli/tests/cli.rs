@@ -93,7 +93,10 @@ fn init_rejects_existing_directory() {
 
 #[test]
 fn new_compliance_definition_requires_rpc_url() {
+    let dir = tempfile::tempdir().unwrap();
     cmd()
+        .current_dir(dir.path())
+        .env_remove("RPC_URL")
         .args([
             "new-compliance-definition",
             "--private-key",
@@ -108,7 +111,10 @@ fn new_compliance_definition_requires_rpc_url() {
 
 #[test]
 fn new_compliance_definition_requires_private_key() {
+    let dir = tempfile::tempdir().unwrap();
     cmd()
+        .current_dir(dir.path())
+        .env_remove("PRIVATE_KEY")
         .args([
             "new-compliance-definition",
             "--rpc-url",
@@ -168,7 +174,10 @@ fn publish_requires_path_argument() {
 
 #[test]
 fn publish_requires_rpc_url() {
+    let dir = tempfile::tempdir().unwrap();
     cmd()
+        .current_dir(dir.path())
+        .env_remove("RPC_URL")
         .args(["publish", "--private-key", "0xdead", "--compliance-definition", "0x1", "/tmp/x"])
         .assert()
         .failure()
@@ -177,7 +186,10 @@ fn publish_requires_rpc_url() {
 
 #[test]
 fn publish_requires_private_key() {
+    let dir = tempfile::tempdir().unwrap();
     cmd()
+        .current_dir(dir.path())
+        .env_remove("PRIVATE_KEY")
         .args(["publish", "--rpc-url", "http://localhost:8545", "--compliance-definition", "0x1", "/tmp/x"])
         .assert()
         .failure()
