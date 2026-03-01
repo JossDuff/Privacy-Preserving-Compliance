@@ -3,8 +3,8 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
 mod bb;
-mod cast;
 mod commands;
+mod eth;
 mod forge;
 mod ipfs;
 mod nargo;

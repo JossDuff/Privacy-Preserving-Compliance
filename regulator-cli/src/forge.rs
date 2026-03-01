@@ -1,11 +1,6 @@
 use anyhow::{bail, Context, Result};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
-
-pub struct ForgeCreateOutput {
-    pub deployed_to: String,
-    pub transaction_hash: String,
-}
 
 /// Optional Etherscan/block-explorer verification settings.
 #[derive(Clone, Default)]
@@ -35,77 +30,64 @@ pub fn build(project_dir: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Run `forge create` to deploy a contract and return the deployed address and tx hash.
-/// When `verify.etherscan_api_key` is set, the contract is verified on-chain after deployment.
-pub fn create(
+/// Return the path to a forge build artifact JSON for a given contract.
+pub fn artifact_path(project_dir: &Path, sol_file: &str, contract_name: &str) -> PathBuf {
+    project_dir
+        .join("out")
+        .join(sol_file)
+        .join(format!("{contract_name}.json"))
+}
+
+/// Run `forge verify-contract` to verify a deployed contract on a block explorer.
+pub fn verify_contract(
     project_dir: &Path,
     rpc_url: &str,
-    private_key: &str,
+    contract_address: &str,
     contract: &str,
-    constructor_args: &[&str],
+    constructor_args: Option<&str>,
     verify: &VerifyArgs,
-) -> Result<ForgeCreateOutput> {
+) -> Result<()> {
+    let api_key = match verify.etherscan_api_key.as_deref().filter(|k| !k.is_empty()) {
+        Some(key) => key,
+        None => return Ok(()),
+    };
+
     let mut cmd = Command::new("forge");
     cmd.args([
-        "create",
+        "verify-contract",
         "--root",
         &project_dir.display().to_string(),
         "--rpc-url",
         rpc_url,
-        "--private-key",
-        private_key,
+        "--etherscan-api-key",
+        api_key,
+        contract_address,
         contract,
     ]);
 
-    // Verify flags must come before --constructor-args, which is variadic
-    // and consumes all remaining positional arguments.
-    if let Some(api_key) = verify.etherscan_api_key.as_deref().filter(|k| !k.is_empty()) {
-        cmd.args(["--verify", "--etherscan-api-key", api_key]);
-        if let Some(url) = verify.verifier_url.as_deref().filter(|u| !u.is_empty()) {
-            cmd.args(["--verifier-url", url]);
-        }
+    if let Some(args) = constructor_args {
+        cmd.args(["--constructor-args", args]);
     }
 
-    if !constructor_args.is_empty() {
-        cmd.arg("--constructor-args");
-        cmd.args(constructor_args);
+    if let Some(url) = verify.verifier_url.as_deref().filter(|u| !u.is_empty()) {
+        cmd.args(["--verifier-url", url]);
+    }
+
+    // Prevent forge from picking up empty env vars.
+    if verify.verifier_url.as_deref().is_none_or(|u| u.is_empty()) {
+        cmd.env_remove("VERIFIER_URL");
     }
 
     let output = cmd
         .output()
         .with_context(|| format!(
-            "failed to run `forge create` for contract {contract} -- is foundry installed?"
+            "failed to run `forge verify-contract` for {contract} -- is foundry installed?"
         ))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        bail!(
-            "forge create failed for contract {contract} (rpc: {rpc_url}):\n{stderr}"
-        );
+        eprintln!("warning: contract verification failed for {contract}:\n{stderr}");
     }
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-
-    let deployed_to = stdout
-        .lines()
-        .find_map(|line| line.strip_prefix("Deployed to: "))
-        .with_context(|| format!(
-            "could not parse deployed address from forge create output for {contract}"
-        ))?
-        .trim()
-        .to_string();
-
-    let transaction_hash = stdout
-        .lines()
-        .find_map(|line| line.strip_prefix("Transaction hash: "))
-        .with_context(|| format!(
-            "could not parse transaction hash from forge create output for {contract}"
-        ))?
-        .trim()
-        .to_string();
-
-    Ok(ForgeCreateOutput {
-        deployed_to,
-        transaction_hash,
-    })
+    Ok(())
 }

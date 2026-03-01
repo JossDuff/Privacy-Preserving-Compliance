@@ -12,3 +12,4 @@ anyhow = "1"
 dotenv = "0.15"
 chrono = { version = "0.4", features = ["serde"] }
 toml = "0.8"
+alloy = { version = "1", features = ["sol-types", "contract", "provider-http", "signers", "signer-local", "network"] }

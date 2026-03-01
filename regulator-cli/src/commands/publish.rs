@@ -1,9 +1,10 @@
+use alloy::primitives::{Address, FixedBytes, U256};
 use anyhow::{bail, Context, Result};
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 
 use crate::bb;
-use crate::cast;
+use crate::eth;
 use crate::forge;
 use crate::forge::VerifyArgs;
 use crate::ipfs;
@@ -101,33 +102,49 @@ pub async fn run(
     eprintln!("verifier contract compiled");
 
     // 8. Deploy the HonkVerifier contract
+    let provider = eth::create_provider(rpc_url, private_key)?;
+    let artifact = forge::artifact_path(contract_dir, "Verifier.sol", "HonkVerifier");
+
     eprintln!("deploying verifier contract...");
-    let deploy_result = forge::create(
+    let deploy_result = eth::deploy_from_artifact(&provider, &artifact, None).await?;
+    eprintln!("verifier deployed to {}", deploy_result.deployed_to);
+
+    // Optionally verify the deployed contract
+    forge::verify_contract(
         contract_dir,
         rpc_url,
-        private_key,
+        &deploy_result.deployed_to.to_string(),
         "src/Verifier.sol:HonkVerifier",
-        &[],
+        None,
         verify,
     )?;
-    eprintln!("verifier deployed to {}", deploy_result.deployed_to);
 
     // 9. Call updateConstraint on the ComplianceDefinition contract
     let cid = &response.hash;
+    let cd_addr: Address = compliance_definition
+        .parse()
+        .with_context(|| format!("invalid compliance definition address: {compliance_definition}"))?;
+    let params_root_bytes: FixedBytes<32> = params_root
+        .parse()
+        .with_context(|| format!("invalid params_root (expected bytes32): {params_root}"))?;
+    let t_start_val: U256 = t_start
+        .parse()
+        .with_context(|| format!("invalid t_start (expected uint256): {t_start}"))?;
+    let t_end_val: U256 = t_end
+        .parse()
+        .with_context(|| format!("invalid t_end (expected uint256): {t_end}"))?;
+
     eprintln!("registering compliance version...");
-    let update_result = cast::send(
-        rpc_url,
-        private_key,
-        compliance_definition,
-        "updateConstraint(address,bytes32,uint256,uint256,string)",
-        &[
-            &deploy_result.deployed_to,
-            params_root,
-            t_start,
-            t_end,
-            cid,
-        ],
-    )?;
+    let update_tx_hash = eth::call_update_constraint(
+        &provider,
+        cd_addr,
+        deploy_result.deployed_to,
+        params_root_bytes,
+        t_start_val,
+        t_end_val,
+        cid.to_string(),
+    )
+    .await?;
     eprintln!("compliance version registered");
 
     println!("{}", deploy_result.deployed_to);
@@ -140,10 +157,10 @@ pub async fn run(
         cid: cid.to_string(),
         file_name: response.name,
         ipfs_size: response.size,
-        verifier_address: deploy_result.deployed_to,
-        deploy_tx_hash: deploy_result.transaction_hash,
+        verifier_address: deploy_result.deployed_to.to_string(),
+        deploy_tx_hash: deploy_result.transaction_hash.to_string(),
         compliance_definition: compliance_definition.to_string(),
-        update_tx_hash: update_result.transaction_hash,
+        update_tx_hash: update_tx_hash.to_string(),
     };
 
     let receipt = Receipt::new("publish", data);
