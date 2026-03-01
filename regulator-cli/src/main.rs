@@ -22,6 +22,14 @@ struct Cli {
     #[arg(long, global = true, value_name = "DIR")]
     receipts_dir: Option<PathBuf>,
 
+    /// Etherscan API key -- when set, deployed contracts are verified on the block explorer
+    #[arg(long, global = true, env = "ETHERSCAN_API_KEY")]
+    etherscan_api_key: Option<String>,
+
+    /// Block explorer verification URL (for non-Etherscan explorers like Blockscout)
+    #[arg(long, global = true, env = "VERIFIER_URL")]
+    verifier_url: Option<String>,
+
     #[command(subcommand)]
     command: Commands,
 }
@@ -113,6 +121,11 @@ async fn main() -> Result<()> {
         .receipts_dir
         .unwrap_or_else(|| PathBuf::from(DEFAULT_RECEIPTS_DIR));
 
+    let verify = forge::VerifyArgs {
+        etherscan_api_key: cli.etherscan_api_key,
+        verifier_url: cli.verifier_url,
+    };
+
     match cli.command {
         Commands::NewComplianceDefinition {
             rpc_url,
@@ -126,6 +139,7 @@ async fn main() -> Result<()> {
                 &regulator,
                 &contract_dir,
                 &receipts_dir,
+                &verify,
             )
             .await
         }
@@ -153,6 +167,7 @@ async fn main() -> Result<()> {
                 &t_start,
                 &t_end,
                 &receipts_dir,
+                &verify,
             )
             .await
         }

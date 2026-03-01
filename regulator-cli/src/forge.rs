@@ -7,6 +7,13 @@ pub struct ForgeCreateOutput {
     pub transaction_hash: String,
 }
 
+/// Optional Etherscan/block-explorer verification settings.
+#[derive(Clone, Default)]
+pub struct VerifyArgs {
+    pub etherscan_api_key: Option<String>,
+    pub verifier_url: Option<String>,
+}
+
 /// Run `forge build` to compile the Solidity contracts in the given project directory.
 pub fn build(project_dir: &Path) -> Result<()> {
     let output = Command::new("forge")
@@ -23,12 +30,14 @@ pub fn build(project_dir: &Path) -> Result<()> {
 }
 
 /// Run `forge create` to deploy a contract and return the deployed address and tx hash.
+/// When `verify.etherscan_api_key` is set, the contract is verified on-chain after deployment.
 pub fn create(
     project_dir: &Path,
     rpc_url: &str,
     private_key: &str,
     contract: &str,
     constructor_args: &[&str],
+    verify: &VerifyArgs,
 ) -> Result<ForgeCreateOutput> {
     let mut cmd = Command::new("forge");
     cmd.args([
@@ -45,6 +54,13 @@ pub fn create(
     if !constructor_args.is_empty() {
         cmd.arg("--constructor-args");
         cmd.args(constructor_args);
+    }
+
+    if let Some(api_key) = &verify.etherscan_api_key {
+        cmd.args(["--verify", "--etherscan-api-key", api_key]);
+        if let Some(url) = &verify.verifier_url {
+            cmd.args(["--verifier-url", url]);
+        }
     }
 
     let output = cmd

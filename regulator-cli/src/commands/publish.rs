@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use crate::bb;
 use crate::cast;
 use crate::forge;
+use crate::forge::VerifyArgs;
 use crate::ipfs;
 use crate::nargo;
 use crate::receipt::Receipt;
@@ -37,6 +38,7 @@ pub async fn run(
     t_start: &str,
     t_end: &str,
     receipts_dir: &Path,
+    verify: &VerifyArgs,
 ) -> Result<()> {
     if !project_dir.is_dir() {
         bail!("not a directory: {}", project_dir.display());
@@ -102,6 +104,7 @@ pub async fn run(
         private_key,
         "src/Verifier.sol:HonkVerifier",
         &[],
+        verify,
     )?;
     eprintln!("verifier deployed to {}", deploy_result.deployed_to);
 

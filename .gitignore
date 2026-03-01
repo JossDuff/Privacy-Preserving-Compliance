@@ -3,4 +3,4 @@ circuits/**/target
 receipts/
 verifier-base-contract/out/
 verifier-base-contract/cache/
-
+.env

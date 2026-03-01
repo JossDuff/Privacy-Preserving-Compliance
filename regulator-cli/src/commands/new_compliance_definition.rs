@@ -3,6 +3,7 @@ use serde::Serialize;
 use std::path::Path;
 
 use crate::forge;
+use crate::forge::VerifyArgs;
 use crate::receipt::Receipt;
 
 #[derive(Debug, Serialize)]
@@ -19,6 +20,7 @@ pub async fn run(
     regulator: &str,
     contract_dir: &Path,
     receipts_dir: &Path,
+    verify: &VerifyArgs,
 ) -> Result<()> {
     eprintln!("compiling contracts...");
     forge::build(contract_dir)?;
@@ -31,6 +33,7 @@ pub async fn run(
         private_key,
         "src/ComplianceDefinition.sol:ComplianceDefinition",
         &[regulator],
+        verify,
     )?;
     eprintln!("deployed successfully");
 
