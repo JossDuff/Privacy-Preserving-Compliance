@@ -1,12 +1,14 @@
 use alloy::primitives::{Address, FixedBytes, U256};
+use alloy::providers::Provider;
 use anyhow::{bail, Context, Result};
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 
 use crate::bb;
 use crate::eth;
+use crate::etherscan;
+use crate::etherscan::VerifyArgs;
 use crate::forge;
-use crate::forge::VerifyArgs;
 use crate::ipfs;
 use crate::nargo;
 use crate::receipt::Receipt;
@@ -24,6 +26,7 @@ pub struct PublishData {
     pub deploy_tx_hash: String,
     pub compliance_definition: String,
     pub update_tx_hash: String,
+    pub verification_status: String,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -109,15 +112,19 @@ pub async fn run(
     let deploy_result = eth::deploy_from_artifact(&provider, &artifact, None).await?;
     eprintln!("verifier deployed to {}", deploy_result.deployed_to);
 
-    // Optionally verify the deployed contract
-    forge::verify_contract(
+    // Verify via Etherscan API
+    let chain_id = provider.get_chain_id().await
+        .context("failed to query chain ID from RPC")?;
+    let verification = etherscan::verify_contract(
         contract_dir,
-        rpc_url,
+        &artifact,
+        chain_id,
         &deploy_result.deployed_to.to_string(),
         "src/Verifier.sol:HonkVerifier",
         None,
         verify,
-    )?;
+    )
+    .await?;
 
     // 9. Call updateConstraint on the ComplianceDefinition contract
     let cid = &response.hash;
@@ -147,7 +154,12 @@ pub async fn run(
     .await?;
     eprintln!("compliance version registered");
 
-    println!("{}", deploy_result.deployed_to);
+    println!("verifier_address={}", deploy_result.deployed_to);
+    println!("deploy_tx_hash={}", deploy_result.transaction_hash);
+    println!("update_tx_hash={update_tx_hash}");
+    println!("cid={cid}");
+    println!("chain_id={chain_id}");
+    println!("verification={verification}");
 
     let data = PublishData {
         project_dir: project_dir.display().to_string(),
@@ -161,6 +173,7 @@ pub async fn run(
         deploy_tx_hash: deploy_result.transaction_hash.to_string(),
         compliance_definition: compliance_definition.to_string(),
         update_tx_hash: update_tx_hash.to_string(),
+        verification_status: verification.to_string(),
     };
 
     let receipt = Receipt::new("publish", data);

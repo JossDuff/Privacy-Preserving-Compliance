@@ -5,6 +5,7 @@ use std::path::PathBuf;
 mod bb;
 mod commands;
 mod eth;
+mod etherscan;
 mod forge;
 mod ipfs;
 mod nargo;
@@ -124,7 +125,7 @@ async fn main() -> Result<()> {
         .receipts_dir
         .unwrap_or_else(|| PathBuf::from(DEFAULT_RECEIPTS_DIR));
 
-    let verify = forge::VerifyArgs {
+    let verify = etherscan::VerifyArgs {
         etherscan_api_key: cli.etherscan_api_key,
         verifier_url: cli.verifier_url,
     };
