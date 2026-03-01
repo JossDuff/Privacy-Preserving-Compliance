@@ -108,9 +108,9 @@ pub async fn run(
     let provider = eth::create_provider(rpc_url, private_key)?;
     let artifact = forge::artifact_path(contract_dir, "Verifier.sol", "HonkVerifier");
 
-    eprintln!("deploying verifier contract...");
+    eprintln!("deploying HonkVerifier...");
     let deploy_result = eth::deploy_from_artifact(&provider, &artifact, None).await?;
-    eprintln!("verifier deployed to {}", deploy_result.deployed_to);
+    eprintln!("HonkVerifier deployed to {}", deploy_result.deployed_to);
 
     // Verify via Etherscan API
     let chain_id = provider.get_chain_id().await

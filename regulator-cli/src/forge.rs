@@ -1,16 +1,25 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
 /// Run `forge build` to compile the Solidity contracts in the given project directory.
 pub fn build(project_dir: &Path) -> Result<()> {
     let output = Command::new("forge")
-        .args(["build", "--root", &project_dir.display().to_string()])
+        .args([
+            "build",
+            "--root",
+            &project_dir.display().to_string(),
+            "--optimize",
+            "--optimizer-runs",
+            "1",
+        ])
         .output()
-        .with_context(|| format!(
-            "failed to run `forge build` for {} -- is foundry installed?",
-            project_dir.display()
-        ))?;
+        .with_context(|| {
+            format!(
+                "failed to run `forge build` for {} -- is foundry installed?",
+                project_dir.display()
+            )
+        })?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);

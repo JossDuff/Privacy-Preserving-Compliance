@@ -48,6 +48,10 @@ pub fn create_provider(
 
 /// Deploy a contract by reading its bytecode from a forge artifact JSON file.
 /// If `constructor_args` is provided, it is appended to the bytecode.
+///
+/// Automatically detects and deploys any unlinked libraries referenced in the
+/// artifact's `linkReferences`, then links them into the bytecode before deploying
+/// the main contract (similar to how Remix IDE handles library dependencies).
 pub async fn deploy_from_artifact(
     provider: &(impl Provider<Ethereum> + Clone),
     artifact_path: &Path,
@@ -59,7 +63,7 @@ pub async fn deploy_from_artifact(
     let artifact: serde_json::Value = serde_json::from_slice(&artifact_bytes)
         .with_context(|| format!("failed to parse artifact JSON: {}", artifact_path.display()))?;
 
-    let bytecode_hex = artifact
+    let mut bytecode_hex = artifact
         .get("bytecode")
         .and_then(|b| b.get("object"))
         .and_then(|o| o.as_str())
@@ -68,17 +72,56 @@ pub async fn deploy_from_artifact(
                 "missing bytecode.object in artifact: {}",
                 artifact_path.display()
             )
-        })?;
+        })?
+        .to_string();
 
-    let mut bytecode =
-        hex::decode(bytecode_hex.strip_prefix("0x").unwrap_or(bytecode_hex)).with_context(
-            || {
-                format!(
-                    "invalid hex in bytecode.object of artifact: {}",
-                    artifact_path.display()
-                )
-            },
-        )?;
+    // Auto-deploy any unlinked libraries and link them into the bytecode.
+    if let Some(link_refs) = artifact.pointer("/bytecode/linkReferences") {
+        if let Some(obj) = link_refs.as_object() {
+            let artifact_dir = artifact_path
+                .parent()
+                .and_then(|p| p.parent())
+                .context("cannot determine artifact output directory")?;
+
+            for (sol_file, libs) in obj {
+                let Some(libs) = libs.as_object() else {
+                    continue;
+                };
+                for lib_name in libs.keys() {
+                    // linkReferences uses source paths like "src/Verifier.sol",
+                    // but forge stores artifacts by filename: "out/Verifier.sol/".
+                    let sol_filename = Path::new(sol_file)
+                        .file_name()
+                        .unwrap_or(sol_file.as_ref());
+                    let lib_artifact_path = artifact_dir
+                        .join(sol_filename)
+                        .join(format!("{lib_name}.json"));
+
+                    eprintln!("  deploying library {lib_name}...");
+                    let lib_deploy = Box::pin(deploy_from_artifact(
+                        provider,
+                        &lib_artifact_path,
+                        None,
+                    ))
+                    .await?;
+                    eprintln!("  {lib_name} deployed to {}", lib_deploy.deployed_to);
+
+                    let fq_name = format!("{sol_file}:{lib_name}");
+                    let placeholder = library_placeholder(&fq_name);
+                    let addr_hex = hex::encode(lib_deploy.deployed_to);
+                    bytecode_hex = bytecode_hex.replace(&placeholder, &addr_hex);
+                }
+            }
+        }
+    }
+
+    let raw = bytecode_hex.strip_prefix("0x").unwrap_or(&bytecode_hex);
+    let mut bytecode = hex::decode(raw).with_context(|| {
+        format!(
+            "invalid hex in bytecode.object of artifact: {}",
+            artifact_path.display()
+        )
+    })?;
 
     if let Some(args) = constructor_args {
         bytecode.extend_from_slice(&args);
@@ -107,6 +150,14 @@ pub async fn deploy_from_artifact(
         deployed_to,
         transaction_hash: tx_hash,
     })
+}
+
+/// Compute the `__$<hash>$__` placeholder that Solidity uses for an unlinked library.
+/// `fully_qualified_name` is e.g. `"src/Verifier.sol:ZKTranscriptLib"`.
+fn library_placeholder(fully_qualified_name: &str) -> String {
+    let hash = alloy::primitives::keccak256(fully_qualified_name.as_bytes());
+    let hash_hex = hex::encode(hash);
+    format!("__${}$__", &hash_hex[..34])
 }
 
 pub async fn call_update_constraint(
