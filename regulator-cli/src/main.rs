@@ -52,7 +52,7 @@ enum Commands {
         private_key: String,
 
         /// Address of the regulator that will control the compliance definition
-        #[arg(long)]
+        #[arg(long, env = "PUBLIC_KEY")]
         regulator: String,
 
         /// Path to the Foundry project containing ComplianceDefinition.sol

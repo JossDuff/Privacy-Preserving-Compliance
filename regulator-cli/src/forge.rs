@@ -51,16 +51,18 @@ pub fn create(
         contract,
     ]);
 
+    // Verify flags must come before --constructor-args, which is variadic
+    // and consumes all remaining positional arguments.
+    if let Some(api_key) = verify.etherscan_api_key.as_deref().filter(|k| !k.is_empty()) {
+        cmd.args(["--verify", "--etherscan-api-key", api_key]);
+        if let Some(url) = verify.verifier_url.as_deref().filter(|u| !u.is_empty()) {
+            cmd.args(["--verifier-url", url]);
+        }
+    }
+
     if !constructor_args.is_empty() {
         cmd.arg("--constructor-args");
         cmd.args(constructor_args);
-    }
-
-    if let Some(api_key) = &verify.etherscan_api_key {
-        cmd.args(["--verify", "--etherscan-api-key", api_key]);
-        if let Some(url) = &verify.verifier_url {
-            cmd.args(["--verifier-url", url]);
-        }
     }
 
     let output = cmd

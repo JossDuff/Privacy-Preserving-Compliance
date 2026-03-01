@@ -129,7 +129,10 @@ fn new_compliance_definition_requires_private_key() {
 
 #[test]
 fn new_compliance_definition_requires_regulator() {
+    let dir = tempfile::tempdir().unwrap();
     cmd()
+        .current_dir(dir.path())
+        .env_remove("PUBLIC_KEY")
         .args([
             "new-compliance-definition",
             "--rpc-url",
