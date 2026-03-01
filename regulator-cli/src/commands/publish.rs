@@ -90,7 +90,7 @@ pub async fn run(
         ))?;
     eprintln!("uploaded to IPFS");
 
-    // 6. Copy Verifier.sol into the Foundry project for deployment
+    // 6. Temporarily copy Verifier.sol into the Foundry project so forge can compile it
     let deploy_verifier_path = contract_dir.join("src/Verifier.sol");
     std::fs::copy(&verifier_path, &deploy_verifier_path).with_context(|| {
         format!(
@@ -99,9 +99,11 @@ pub async fn run(
         )
     })?;
 
-    // 7. Build the Foundry project with the new Verifier.sol
+    // 7. Build the Foundry project with the new Verifier.sol, then clean up
     eprintln!("compiling verifier contract...");
-    forge::build(contract_dir)?;
+    let build_result = forge::build(contract_dir);
+    let _ = std::fs::remove_file(&deploy_verifier_path);
+    build_result?;
     eprintln!("verifier contract compiled");
 
     // 8. Deploy the HonkVerifier contract
