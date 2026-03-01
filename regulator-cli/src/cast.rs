@@ -28,16 +28,22 @@ pub fn send(
 
     let output = cmd
         .output()
-        .context("failed to run cast send -- is foundry installed?")?;
+        .with_context(|| format!(
+            "failed to run `cast send` to {to} calling {sig} -- is foundry installed?"
+        ))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        bail!("cast send failed:\n{stderr}");
+        bail!(
+            "cast send failed calling {sig} on {to} (rpc: {rpc_url}):\n{stderr}"
+        );
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let parsed: CastSendJson =
-        serde_json::from_str(&stdout).context("failed to parse cast send output")?;
+        serde_json::from_str(&stdout).with_context(|| format!(
+            "failed to parse cast send JSON output for {sig} on {to}"
+        ))?;
 
     Ok(CastSendOutput {
         transaction_hash: parsed.transaction_hash,

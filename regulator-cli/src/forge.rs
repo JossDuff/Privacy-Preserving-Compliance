@@ -19,11 +19,17 @@ pub fn build(project_dir: &Path) -> Result<()> {
     let output = Command::new("forge")
         .args(["build", "--root", &project_dir.display().to_string()])
         .output()
-        .context("failed to run forge build -- is foundry installed?")?;
+        .with_context(|| format!(
+            "failed to run `forge build` for {} -- is foundry installed?",
+            project_dir.display()
+        ))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        bail!("forge build failed:\n{stderr}");
+        bail!(
+            "forge build failed for project {}:\n{stderr}",
+            project_dir.display()
+        );
     }
 
     Ok(())
@@ -67,11 +73,15 @@ pub fn create(
 
     let output = cmd
         .output()
-        .context("failed to run forge create -- is foundry installed?")?;
+        .with_context(|| format!(
+            "failed to run `forge create` for contract {contract} -- is foundry installed?"
+        ))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        bail!("forge create failed:\n{stderr}");
+        bail!(
+            "forge create failed for contract {contract} (rpc: {rpc_url}):\n{stderr}"
+        );
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -79,14 +89,18 @@ pub fn create(
     let deployed_to = stdout
         .lines()
         .find_map(|line| line.strip_prefix("Deployed to: "))
-        .context("could not parse deployed address from forge create output")?
+        .with_context(|| format!(
+            "could not parse deployed address from forge create output for {contract}"
+        ))?
         .trim()
         .to_string();
 
     let transaction_hash = stdout
         .lines()
         .find_map(|line| line.strip_prefix("Transaction hash: "))
-        .context("could not parse transaction hash from forge create output")?
+        .with_context(|| format!(
+            "could not parse transaction hash from forge create output for {contract}"
+        ))?
         .trim()
         .to_string();
 

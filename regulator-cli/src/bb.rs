@@ -16,16 +16,27 @@ pub fn write_vk(bytecode_path: &Path, output_dir: &Path) -> Result<PathBuf> {
             "keccak",
         ])
         .output()
-        .context("failed to run bb write_vk -- is barretenberg (bb) installed?")?;
+        .with_context(|| format!(
+            "failed to run `bb write_vk` for bytecode {} -- is barretenberg (bb) installed?",
+            bytecode_path.display()
+        ))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        bail!("bb write_vk failed:\n{stderr}");
+        bail!(
+            "bb write_vk failed for bytecode {} (output dir: {}):\n{stderr}",
+            bytecode_path.display(),
+            output_dir.display()
+        );
     }
 
     let vk_path = output_dir.join("vk");
     if !vk_path.exists() {
-        bail!("verification key not found at {}", vk_path.display());
+        bail!(
+            "verification key not found at {} after running bb write_vk on {}",
+            vk_path.display(),
+            bytecode_path.display()
+        );
     }
 
     Ok(vk_path)
@@ -42,17 +53,25 @@ pub fn write_solidity_verifier(vk_path: &Path, output_path: &Path) -> Result<()>
             &output_path.display().to_string(),
         ])
         .output()
-        .context("failed to run bb write_solidity_verifier -- is barretenberg (bb) installed?")?;
+        .with_context(|| format!(
+            "failed to run `bb write_solidity_verifier` for vk {} -- is barretenberg (bb) installed?",
+            vk_path.display()
+        ))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        bail!("bb write_solidity_verifier failed:\n{stderr}");
+        bail!(
+            "bb write_solidity_verifier failed for vk {} (output: {}):\n{stderr}",
+            vk_path.display(),
+            output_path.display()
+        );
     }
 
     if !output_path.exists() {
         bail!(
-            "Solidity verifier not found at {}",
-            output_path.display()
+            "Solidity verifier not found at {} after running bb write_solidity_verifier on {}",
+            output_path.display(),
+            vk_path.display()
         );
     }
 

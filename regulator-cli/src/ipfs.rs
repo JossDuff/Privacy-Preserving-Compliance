@@ -34,18 +34,27 @@ pub async fn add_file(ipfs_rpc_url: &str, file_path: &Path) -> Result<AddRespons
         .multipart(form)
         .send()
         .await
-        .with_context(|| format!("failed to POST to {}", url))?;
+        .with_context(|| format!(
+            "failed to upload {} to IPFS at {url} -- is the IPFS daemon running?",
+            file_path.display()
+        ))?;
 
     let status = response.status();
     if !status.is_success() {
         let body = response.text().await.unwrap_or_default();
-        anyhow::bail!("IPFS add failed (HTTP {}): {}", status, body);
+        anyhow::bail!(
+            "IPFS add failed for {} (HTTP {status} from {url}): {body}",
+            file_path.display()
+        );
     }
 
     let add_response: AddResponse = response
         .json()
         .await
-        .context("failed to parse IPFS add response")?;
+        .with_context(|| format!(
+            "failed to parse IPFS add response from {url} for {}",
+            file_path.display()
+        ))?;
 
     Ok(add_response)
 }

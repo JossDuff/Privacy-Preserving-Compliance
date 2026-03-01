@@ -55,7 +55,8 @@ pub async fn run(
 
     // 1. Validate circuit
     eprintln!("validating circuit...");
-    nargo::check(&project_dir).context("circuit validation failed")?;
+    nargo::check(&project_dir)
+        .with_context(|| format!("circuit validation failed for {}", project_dir.display()))?;
     eprintln!("circuit validated successfully");
 
     // 2. Compile the circuit
@@ -79,7 +80,10 @@ pub async fn run(
     eprintln!("uploading circuit to IPFS...");
     let response = ipfs::add_file(ipfs_rpc_url, &source_file)
         .await
-        .context("failed to upload circuit to IPFS")?;
+        .with_context(|| format!(
+            "failed to upload {} to IPFS at {ipfs_rpc_url}",
+            source_file.display()
+        ))?;
     eprintln!("uploaded to IPFS");
 
     // 6. Copy Verifier.sol into the Foundry project for deployment

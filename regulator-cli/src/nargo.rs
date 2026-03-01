@@ -16,9 +16,11 @@ struct NargoPackage {
 }
 
 fn read_nargo_toml(project_dir: &Path) -> Result<NargoToml> {
-    let contents = std::fs::read_to_string(project_dir.join("Nargo.toml"))
-        .context("failed to read Nargo.toml")?;
-    toml::from_str(&contents).context("failed to parse Nargo.toml")
+    let toml_path = project_dir.join("Nargo.toml");
+    let contents = std::fs::read_to_string(&toml_path)
+        .with_context(|| format!("failed to read {}", toml_path.display()))?;
+    toml::from_str(&contents)
+        .with_context(|| format!("failed to parse {}", toml_path.display()))
 }
 
 /// Determine the main source file for a Nargo project based on its package type.
@@ -43,11 +45,17 @@ pub fn check(project_dir: &Path) -> Result<()> {
         .arg("check")
         .current_dir(project_dir)
         .output()
-        .context("failed to run nargo check -- is nargo installed?")?;
+        .with_context(|| format!(
+            "failed to run `nargo check` in {} -- is nargo installed?",
+            project_dir.display()
+        ))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        bail!("nargo check failed:\n{stderr}");
+        bail!(
+            "nargo check failed in {}:\n{stderr}",
+            project_dir.display()
+        );
     }
 
     Ok(())
@@ -59,11 +67,17 @@ pub fn compile(project_dir: &Path) -> Result<PathBuf> {
         .arg("compile")
         .current_dir(project_dir)
         .output()
-        .context("failed to run nargo compile -- is nargo installed?")?;
+        .with_context(|| format!(
+            "failed to run `nargo compile` in {} -- is nargo installed?",
+            project_dir.display()
+        ))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        bail!("nargo compile failed:\n{stderr}");
+        bail!(
+            "nargo compile failed in {}:\n{stderr}",
+            project_dir.display()
+        );
     }
 
     let config = read_nargo_toml(project_dir)?;
@@ -74,8 +88,9 @@ pub fn compile(project_dir: &Path) -> Result<PathBuf> {
 
     if !bytecode_path.exists() {
         bail!(
-            "compiled bytecode not found at {}",
-            bytecode_path.display()
+            "compiled bytecode not found at {} -- did nargo compile succeed for project '{}'?",
+            bytecode_path.display(),
+            config.package.name
         );
     }
 
