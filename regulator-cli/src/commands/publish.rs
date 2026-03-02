@@ -99,11 +99,9 @@ pub async fn run(
         )
     })?;
 
-    // 7. Build the Foundry project with the new Verifier.sol, then clean up
+    // 7. Build the Foundry project with the new Verifier.sol
     eprintln!("compiling verifier contract...");
-    let build_result = forge::build(contract_dir);
-    let _ = std::fs::remove_file(&deploy_verifier_path);
-    build_result?;
+    forge::build(contract_dir)?;
     eprintln!("verifier contract compiled");
 
     // 8. Deploy the HonkVerifier contract
@@ -114,7 +112,7 @@ pub async fn run(
     let deploy_result = eth::deploy_from_artifact(&provider, &artifact, None).await?;
     eprintln!("HonkVerifier deployed to {}", deploy_result.deployed_to);
 
-    // Verify via Etherscan API
+    // Verify via Etherscan API (needs Verifier.sol still present for standard JSON input)
     let chain_id = provider.get_chain_id().await
         .context("failed to query chain ID from RPC")?;
     let verification = etherscan::verify_contract(
@@ -126,7 +124,12 @@ pub async fn run(
         None,
         verify,
     )
-    .await?;
+    .await;
+
+    // Clean up the temporarily copied Verifier.sol
+    let _ = std::fs::remove_file(&deploy_verifier_path);
+
+    let verification = verification?;
 
     // 9. Call updateConstraint on the ComplianceDefinition contract
     let cid = &response.hash;

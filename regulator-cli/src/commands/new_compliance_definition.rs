@@ -3,13 +3,15 @@ use alloy::providers::Provider;
 use alloy::sol_types::SolValue;
 use anyhow::{Context, Result};
 use serde::Serialize;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::eth;
 use crate::etherscan;
 use crate::etherscan::VerifyArgs;
 use crate::forge;
 use crate::receipt::Receipt;
+
+use super::publish;
 
 #[derive(Debug, Serialize)]
 pub struct NewComplianceDefinitionData {
@@ -20,11 +22,18 @@ pub struct NewComplianceDefinitionData {
     pub verification_status: String,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn run(
+    path: PathBuf,
+    verifier_output: Option<PathBuf>,
+    ipfs_rpc_url: &str,
     rpc_url: &str,
     private_key: &str,
     regulator: &str,
     contract_dir: &Path,
+    params_root: &str,
+    t_start: &str,
+    t_end: &str,
     receipts_dir: &Path,
     verify: &VerifyArgs,
 ) -> Result<()> {
@@ -75,5 +84,21 @@ pub async fn run(
     let receipt = Receipt::new("new-compliance-definition", data);
     receipt.write_to_dir(receipts_dir)?;
 
-    Ok(())
+    // Now publish the Noir circuit to the newly deployed ComplianceDefinition
+    let compliance_definition = result.deployed_to.to_string();
+    publish::run(
+        path,
+        verifier_output,
+        ipfs_rpc_url,
+        rpc_url,
+        private_key,
+        &compliance_definition,
+        contract_dir,
+        params_root,
+        t_start,
+        t_end,
+        receipts_dir,
+        verify,
+    )
+    .await
 }

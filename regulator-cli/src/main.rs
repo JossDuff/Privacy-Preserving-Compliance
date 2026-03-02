@@ -42,8 +42,12 @@ const BYTES32_ZERO: &str =
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Deploy a new ComplianceDefinition contract on-chain
+    /// Deploy a new ComplianceDefinition contract and publish a Noir circuit verifier to it
     NewComplianceDefinition {
+        /// Path to the Noir project directory (containing Nargo.toml)
+        #[arg(value_name = "DIR")]
+        path: PathBuf,
+
         /// RPC URL of the target chain
         #[arg(long, env = "RPC_URL")]
         rpc_url: String,
@@ -59,6 +63,22 @@ enum Commands {
         /// Path to the Foundry project containing ComplianceDefinition.sol
         #[arg(long, default_value = "verifier-base-contract", value_name = "DIR")]
         contract_dir: PathBuf,
+
+        /// Path to write the generated Solidity verifier [default: <DIR>/target/Verifier.sol]
+        #[arg(long, value_name = "FILE")]
+        verifier_output: Option<PathBuf>,
+
+        /// Merkle root of public parameters (bytes32)
+        #[arg(long, default_value = BYTES32_ZERO)]
+        params_root: String,
+
+        /// Block height when this version becomes active
+        #[arg(long, default_value = "0")]
+        t_start: String,
+
+        /// Block height when this version expires
+        #[arg(long, default_value = UINT256_MAX)]
+        t_end: String,
     },
     /// Initialize a new Noir compliance definition project
     Init {
@@ -132,16 +152,27 @@ async fn main() -> Result<()> {
 
     match cli.command {
         Commands::NewComplianceDefinition {
+            path,
             rpc_url,
             private_key,
             regulator,
             contract_dir,
+            verifier_output,
+            params_root,
+            t_start,
+            t_end,
         } => {
             commands::new_compliance_definition::run(
+                path,
+                verifier_output,
+                &ipfs_url,
                 &rpc_url,
                 &private_key,
                 &regulator,
                 &contract_dir,
+                &params_root,
+                &t_start,
+                &t_end,
                 &receipts_dir,
                 &verify,
             )
