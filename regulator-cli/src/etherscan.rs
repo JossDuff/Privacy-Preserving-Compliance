@@ -62,6 +62,22 @@ fn explorer_url(chain_id: u64) -> &'static str {
     }
 }
 
+/// Map a chain ID to a human-readable network name.
+pub fn network_name(chain_id: u64) -> &'static str {
+    match chain_id {
+        1 => "Mainnet",
+        11155111 => "Sepolia",
+        8453 => "Base",
+        84532 => "Base Sepolia",
+        42161 => "Arbitrum One",
+        421614 => "Arbitrum Sepolia",
+        10 => "Optimism",
+        11155420 => "Optimism Sepolia",
+        137 => "Polygon",
+        _ => "unknown network",
+    }
+}
+
 /// Build Solidity Standard JSON Input from a forge project's source files and artifact metadata.
 ///
 /// Reads all source files referenced in the artifact metadata and reconstructs the
@@ -190,6 +206,7 @@ async fn poll_status(
     chain_id: u64,
     api_key: &str,
     guid: &str,
+    indent: &str,
 ) -> Result<VerificationOutcome> {
     let chain_id_str = chain_id.to_string();
 
@@ -213,7 +230,7 @@ async fn poll_status(
             .context("failed to parse Etherscan status response")?;
 
         eprintln!(
-            "  verification check ({attempt}/{MAX_POLL_ATTEMPTS}): {}",
+            "{indent}  verification check ({attempt}/{MAX_POLL_ATTEMPTS}): {}",
             resp.result
         );
 
@@ -242,6 +259,7 @@ pub async fn verify_contract(
     contract_name: &str,
     constructor_args: Option<&str>,
     verify: &VerifyArgs,
+    indent: &str,
 ) -> Result<VerificationOutcome> {
     let api_key = match verify
         .etherscan_api_key
@@ -250,7 +268,7 @@ pub async fn verify_contract(
     {
         Some(key) => key,
         None => {
-            eprintln!("no Etherscan API key provided, skipping verification");
+            eprintln!("{indent}no Etherscan API key provided, skipping verification");
             return Ok(VerificationOutcome::Skipped);
         }
     };
@@ -261,7 +279,7 @@ pub async fn verify_contract(
         .filter(|u| !u.is_empty())
         .unwrap_or(ETHERSCAN_V2_API);
 
-    eprintln!("verifying {contract_address} on chain {chain_id}...");
+    eprintln!("{indent}verifying {contract_address} on chain {chain_id}...");
 
     let (standard_json, compiler_version) =
         build_standard_json_input(project_dir, artifact_path)
@@ -272,7 +290,7 @@ pub async fn verify_contract(
 
     let mut guid = None;
     for attempt in 1..=SUBMIT_RETRIES {
-        eprintln!("  submission attempt {attempt}/{SUBMIT_RETRIES}...");
+        eprintln!("{indent}  submission attempt {attempt}/{SUBMIT_RETRIES}...");
         match submit_verification(
             &client,
             base_url,
@@ -293,12 +311,12 @@ pub async fn verify_contract(
             Err(e) => {
                 if attempt < SUBMIT_RETRIES {
                     eprintln!(
-                        "  attempt {attempt} failed: {e:#}, retrying in {}s...",
+                        "{indent}  attempt {attempt} failed: {e:#}, retrying in {}s...",
                         SUBMIT_RETRY_DELAY.as_secs()
                     );
                     sleep(SUBMIT_RETRY_DELAY).await;
                 } else {
-                    eprintln!("  all {SUBMIT_RETRIES} attempts failed: {e:#}");
+                    eprintln!("{indent}  all {SUBMIT_RETRIES} attempts failed: {e:#}");
                     return Ok(VerificationOutcome::Failed(format!("{e:#}")));
                 }
             }
@@ -306,20 +324,20 @@ pub async fn verify_contract(
     }
     let guid = guid.expect("guid set if loop didn't return");
 
-    eprintln!("  submitted (guid: {guid}), polling for result...");
+    eprintln!("{indent}  submitted (guid: {guid}), polling for result...");
 
-    let outcome = poll_status(&client, base_url, chain_id, api_key, &guid).await?;
+    let outcome = poll_status(&client, base_url, chain_id, api_key, &guid, indent).await?;
 
     let explorer = explorer_url(chain_id);
     match &outcome {
         VerificationOutcome::Verified => {
-            println!("contract verified: {explorer}/address/{contract_address}#code");
+            eprintln!("{indent}  verified: {explorer}/address/{contract_address}#code");
         }
         VerificationOutcome::AlreadyVerified => {
-            println!("contract already verified: {explorer}/address/{contract_address}#code");
+            eprintln!("{indent}  already verified: {explorer}/address/{contract_address}#code");
         }
         VerificationOutcome::Failed(reason) => {
-            eprintln!("warning: contract verification failed: {reason}");
+            eprintln!("{indent}  verification failed: {reason}");
         }
         VerificationOutcome::Skipped => {}
     }

@@ -123,6 +123,7 @@ pub async fn run(
         "src/Verifier.sol:HonkVerifier",
         None,
         verify,
+        "",
     )
     .await;
 
