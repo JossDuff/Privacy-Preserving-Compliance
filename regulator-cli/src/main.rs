@@ -37,6 +37,8 @@ struct Cli {
 
 const UINT256_MAX: &str =
     "115792089237316195423570985008687907853269984665640564039457584007913129639935";
+const BYTES32_ZERO: &str =
+    "0x0000000000000000000000000000000000000000000000000000000000000000";
 
 #[derive(Subcommand)]
 enum Commands {
@@ -66,9 +68,9 @@ enum Commands {
         #[arg(long, value_name = "FILE")]
         verifier_output: Option<PathBuf>,
 
-        /// File containing public parameters to upload to IPFS
-        #[arg(long, value_name = "FILE")]
-        public_params: Option<PathBuf>,
+        /// Merkle root of the compliance membership set (bytes32)
+        #[arg(long, default_value = BYTES32_ZERO)]
+        merkle_root: String,
 
         /// Block height when this version becomes active
         #[arg(long, default_value = "0")]
@@ -109,9 +111,9 @@ enum Commands {
         #[arg(long, default_value = "verifier-base-contract", value_name = "DIR")]
         contract_dir: PathBuf,
 
-        /// File containing public parameters to upload to IPFS
-        #[arg(long, value_name = "FILE")]
-        public_params: Option<PathBuf>,
+        /// Merkle root of the compliance membership set (bytes32)
+        #[arg(long, default_value = BYTES32_ZERO)]
+        merkle_root: String,
 
         /// Block height when this version becomes active
         #[arg(long, default_value = "0")]
@@ -156,7 +158,7 @@ async fn main() -> Result<()> {
             regulator,
             contract_dir,
             verifier_output,
-            public_params,
+            merkle_root,
             t_start,
             t_end,
         } => {
@@ -168,7 +170,7 @@ async fn main() -> Result<()> {
                 &private_key,
                 &regulator,
                 &contract_dir,
-                public_params,
+                &merkle_root,
                 &t_start,
                 &t_end,
                 &receipts_dir,
@@ -184,7 +186,7 @@ async fn main() -> Result<()> {
             compliance_definition,
             verifier_output,
             contract_dir,
-            public_params,
+            merkle_root,
             t_start,
             t_end,
         } => {
@@ -196,7 +198,7 @@ async fn main() -> Result<()> {
                 &private_key,
                 &compliance_definition,
                 &contract_dir,
-                public_params,
+                &merkle_root,
                 &t_start,
                 &t_end,
                 &receipts_dir,

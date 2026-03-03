@@ -6,7 +6,7 @@ import {IVerifier} from "./IVerifier.sol";
 contract ComplianceDefinition {
     struct ComplianceVersion {
         address verifier;
-        string publicParams;
+        bytes32 merkleRoot;
         uint256 tStart;
         uint256 tEnd;
         string metadataHash;
@@ -28,21 +28,23 @@ contract ComplianceDefinition {
         regulator = _regulator;
     }
 
-    function verify(bytes calldata proof, bytes32[] calldata publicInputs) external returns (bool) {
+    function verify(bytes calldata proof) external returns (bool) {
         ComplianceVersion memory v = getActiveVersion();
+        bytes32[] memory publicInputs = new bytes32[](1);
+        publicInputs[0] = v.merkleRoot;
         return IVerifier(v.verifier).verify(proof, publicInputs);
     }
 
     function updateConstraint(
         address newVerifier,
-        string calldata newPublicParams,
+        bytes32 newMerkleRoot,
         uint256 tStart,
         uint256 tEnd,
         string calldata metadataHash
     ) external onlyRegulator {
         versions.push(ComplianceVersion({
             verifier: newVerifier,
-            publicParams: newPublicParams,
+            merkleRoot: newMerkleRoot,
             tStart: tStart,
             tEnd: tEnd,
             metadataHash: metadataHash
@@ -50,7 +52,7 @@ contract ComplianceDefinition {
     }
 
     function updateParams(
-        string calldata newPublicParams,
+        bytes32 newMerkleRoot,
         uint256 tStart,
         uint256 tEnd,
         string calldata metadataHash
@@ -58,7 +60,7 @@ contract ComplianceDefinition {
         ComplianceVersion memory current = getActiveVersion();
         versions.push(ComplianceVersion({
             verifier: current.verifier,
-            publicParams: newPublicParams,
+            merkleRoot: newMerkleRoot,
             tStart: tStart,
             tEnd: tEnd,
             metadataHash: metadataHash
