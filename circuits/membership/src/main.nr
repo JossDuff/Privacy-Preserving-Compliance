@@ -5,12 +5,16 @@ use poseidon::poseidon::bn254;
 // Proves that `address` is a leaf in the Merkle tree with the given `root`,
 // without revealing the address or its position.
 //
-// Public inputs:  root
-// Private inputs: address, index, hash_path
+// Public inputs:  address, root
+// Private inputs: index, hash_path
 fn main(
-    address: Field,
+    // user address
+    address: pub Field,
+    // index of the address in the merkle tree, for the merkle proof
     index: Field,
+    // path of sibling nodes for the merkle proof
     hash_path: [Field; 32],
+    // merkle root
     root: pub Field,
 ) {
     let computed_root = compute_merkle_root(address, index, hash_path);

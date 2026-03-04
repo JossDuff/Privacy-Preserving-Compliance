@@ -30,8 +30,9 @@ contract ComplianceDefinition {
 
     function verify(bytes calldata proof) external returns (bool) {
         ComplianceVersion memory v = getActiveVersion();
-        bytes32[] memory publicInputs = new bytes32[](1);
-        publicInputs[0] = v.merkleRoot;
+        bytes32[] memory publicInputs = new bytes32[](2);
+        publicInputs[0] = bytes32(uint256(uint160(msg.sender)));
+        publicInputs[1] = v.merkleRoot;
         return IVerifier(v.verifier).verify(proof, publicInputs);
     }
 
@@ -42,13 +43,15 @@ contract ComplianceDefinition {
         uint256 tEnd,
         string calldata metadataHash
     ) external onlyRegulator {
-        versions.push(ComplianceVersion({
-            verifier: newVerifier,
-            merkleRoot: newMerkleRoot,
-            tStart: tStart,
-            tEnd: tEnd,
-            metadataHash: metadataHash
-        }));
+        versions.push(
+            ComplianceVersion({
+                verifier: newVerifier,
+                merkleRoot: newMerkleRoot,
+                tStart: tStart,
+                tEnd: tEnd,
+                metadataHash: metadataHash
+            })
+        );
     }
 
     function updateParams(
@@ -58,13 +61,15 @@ contract ComplianceDefinition {
         string calldata metadataHash
     ) external onlyRegulator {
         ComplianceVersion memory current = getActiveVersion();
-        versions.push(ComplianceVersion({
-            verifier: current.verifier,
-            merkleRoot: newMerkleRoot,
-            tStart: tStart,
-            tEnd: tEnd,
-            metadataHash: metadataHash
-        }));
+        versions.push(
+            ComplianceVersion({
+                verifier: current.verifier,
+                merkleRoot: newMerkleRoot,
+                tStart: tStart,
+                tEnd: tEnd,
+                metadataHash: metadataHash
+            })
+        );
     }
 
     function getActiveVersion() public view returns (ComplianceVersion memory) {
@@ -78,7 +83,9 @@ contract ComplianceDefinition {
         revert NoActiveVersion();
     }
 
-    function getVersionAt(uint256 blockHeight) external view returns (ComplianceVersion memory) {
+    function getVersionAt(
+        uint256 blockHeight
+    ) external view returns (ComplianceVersion memory) {
         uint256 len = versions.length;
         for (uint256 i = len; i > 0; i--) {
             ComplianceVersion memory v = versions[i - 1];
