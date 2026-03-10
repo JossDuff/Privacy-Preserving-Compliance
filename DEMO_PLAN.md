@@ -17,27 +17,17 @@ Apps 1 and 2 share the same ComplianceDefinition (non-membership / sanction list
 ### Architecture
 
 ```
-                  +-----------------------+
-                  | ComplianceDefinition  |  (non-membership / sanction list)
-                  | 0xAAA...             |
-                  +----------+------------+
-                       |           |
-              +--------+     +----+------+
-              |              |           |
-     +--------v---+   +-----v------+    |
-     | SafeSwap   |  | CleanMixer |    |
-     | Token 0xT1 |  | Token 0xT2 |    |
-     +------------+  +------------+    |
-                                       |
-                  +--------------------+---+
-                  | ComplianceDefinition   |  (membership / whitelist)
-                  | 0xBBB...              |
-                  +----------+-------------+
-                             |
-                    +--------v------+
-                    | VerifiedLend    |
-                    | Token 0xT3   |
-                    +--------------+
+  +-----------------------+             +-----------------------+
+  | ComplianceDefinition  |             | ComplianceDefinition  |
+  | (sanction list)       |             | (whitelist)           |
+  | 0xAAA...             |             | 0xBBB...             |
+  +----------+------------+             +----------+------------+
+       |           |                               |
+       v           v                               v
+  +----------+ +------------+             +-----------------+
+  | SafeSwap | | CleanMixer |             | VerifiedLend    |
+  | Token T1 | | Token T2   |             | Token T3        |
+  +----------+ +------------+             +-----------------+
 
      [Single ProofManager instance with in-memory proof cache]
 ```

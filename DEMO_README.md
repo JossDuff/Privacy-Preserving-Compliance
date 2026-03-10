@@ -15,27 +15,17 @@ SafeSwap and CleanMixer share the same ComplianceDefinition. When a user generat
 ## Architecture
 
 ```
-                  +-----------------------+
-                  | ComplianceDefinition  |  (non-membership / sanction list)
-                  | 0xAAA...             |
-                  +----------+------------+
-                       |           |
-              +--------+     +----+------+
-              v              v           |
-     +------------+   +------------+    |
-     | SafeSwap   |   | CleanMixer |    |
-     | Token 0xT1 |   | Token 0xT2 |    |
-     +------------+   +------------+    |
-                                        |
-                  +---------------------+--+
-                  | ComplianceDefinition   |  (membership / whitelist)
-                  | 0xBBB...              |
-                  +----------+-------------+
-                             |
-                    +--------v--------+
-                    | VerifiedLend    |
-                    | Token 0xT3     |
-                    +-----------------+
+  +-----------------------+             +-----------------------+
+  | ComplianceDefinition  |             | ComplianceDefinition  |
+  | (sanction list)       |             | (whitelist)           |
+  | 0xAAA...             |             | 0xBBB...             |
+  +----------+------------+             +----------+------------+
+       |           |                               |
+       v           v                               v
+  +----------+ +------------+             +-----------------+
+  | SafeSwap | | CleanMixer |             | VerifiedLend    |
+  | Token T1 | | Token T2   |             | Token T3        |
+  +----------+ +------------+             +-----------------+
 ```
 
 Each `CompliantToken` contract has a single entrypoint:
@@ -63,9 +53,28 @@ It calls `ComplianceDefinition.verify(proof)` atomically -- if the proof is inva
 
 Before running the demo, you need 5 deployed contracts on Sepolia: 2 ComplianceDefinitions and 3 CompliantTokens.
 
-### 1. Deploy ComplianceDefinitions
+### 1. Build the merkle trees
 
-Use the regulator CLI to deploy two ComplianceDefinitions -- one for the non-membership (sanction list) circuit and one for the membership (whitelist) circuit:
+Use the build-merkle tool to construct leaves files and compute merkle roots. The sanction list must be sorted (required by the non-membership circuit):
+
+```sh
+# Sanction list (must be sorted for non-membership proofs)
+pnpm --filter @ppc/build-merkle start \
+  --input sanction_addresses.json \
+  --output sanction_leaves.json \
+  --sorted
+
+# Whitelist
+pnpm --filter @ppc/build-merkle start \
+  --input whitelist_addresses.json \
+  --output whitelist_leaves.json
+```
+
+The tool outputs the merkle root for each tree. Use these as `--merkle-root` in the next step.
+
+### 2. Deploy ComplianceDefinitions
+
+Use the regulator CLI to deploy two ComplianceDefinitions -- one for the non-membership (sanction list) circuit and one for the membership (whitelist) circuit. The leaves files and merkle roots from step 1 are inputs here:
 
 ```sh
 # Sanction list (non-membership) -- used by SafeSwap and CleanMixer
@@ -90,23 +99,6 @@ regulator-cli new-compliance-definition \
 ```
 
 Each command outputs a receipt with the deployed ComplianceDefinition address.
-
-### 2. Build the merkle trees
-
-Use the build-merkle tool to construct sorted leaves files and compute merkle roots:
-
-```sh
-# Sanction list (must be sorted for non-membership proofs)
-pnpm --filter @ppc/build-merkle start \
-  --input sanction_addresses.json \
-  --output sanction_leaves.json \
-  --sorted
-
-# Whitelist
-pnpm --filter @ppc/build-merkle start \
-  --input whitelist_addresses.json \
-  --output whitelist_leaves.json
-```
 
 ### 3. Deploy CompliantToken contracts
 
