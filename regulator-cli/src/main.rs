@@ -44,8 +44,8 @@ enum Commands {
     /// Deploy a new ComplianceDefinition contract and publish a Noir circuit verifier to it
     NewComplianceDefinition {
         /// Path to the Noir project directory (containing Nargo.toml)
-        #[arg(value_name = "DIR")]
-        path: PathBuf,
+        #[arg(long, value_name = "DIR")]
+        circuit_dir: PathBuf,
 
         /// Human-readable name for this compliance definition
         #[arg(long)]
@@ -90,8 +90,8 @@ enum Commands {
     /// Update the circuit of an existing ComplianceDefinition: compile, deploy a new verifier, and register it
     UpdateCircuit {
         /// Path to the Noir project directory (containing Nargo.toml)
-        #[arg(value_name = "DIR")]
-        path: PathBuf,
+        #[arg(long, value_name = "DIR")]
+        circuit_dir: PathBuf,
 
         /// RPC URL of the target chain
         #[arg(long, env = "RPC_URL")]
@@ -178,7 +178,7 @@ async fn main() -> Result<()> {
 
     match cli.command {
         Commands::NewComplianceDefinition {
-            path,
+            circuit_dir,
             name,
             rpc_url,
             private_key,
@@ -191,7 +191,7 @@ async fn main() -> Result<()> {
             leaves_file,
         } => {
             commands::new_compliance_definition::run(
-                path,
+                circuit_dir,
                 &name,
                 verifier_output,
                 &ipfs_url,
@@ -209,7 +209,7 @@ async fn main() -> Result<()> {
             .await
         }
         Commands::UpdateCircuit {
-            path,
+            circuit_dir,
             rpc_url,
             private_key,
             compliance_definition,
@@ -221,7 +221,7 @@ async fn main() -> Result<()> {
             leaves_file,
         } => {
             commands::update_circuit::run(
-                path,
+                circuit_dir,
                 verifier_output,
                 &ipfs_url,
                 &rpc_url,

@@ -74,7 +74,8 @@ You can place these in a `.env` file in the working directory -- it is loaded au
 Deploy a new `ComplianceDefinition` contract and register an initial Noir circuit verifier.
 
 ```sh
-regulator-cli new-compliance-definition ./circuits/my_circuit \
+regulator-cli new-compliance-definition \
+  --circuit-dir ./circuits/my_circuit \
   --name "US AML Compliance" \
   --rpc-url https://sepolia.infura.io/v3/YOUR_KEY \
   --private-key 0xYOUR_PRIVATE_KEY \
@@ -87,7 +88,7 @@ regulator-cli new-compliance-definition ./circuits/my_circuit \
 
 | Argument | Required | Description |
 |----------|----------|-------------|
-| `<DIR>` (positional) | yes | Path to the Noir project directory |
+| `--circuit-dir` | yes | Path to the Noir project directory |
 | `--name` | yes | Human-readable compliance definition name |
 | `--rpc-url` | yes | Target chain RPC endpoint |
 | `--private-key` | yes | Deployer private key |
@@ -104,7 +105,8 @@ regulator-cli new-compliance-definition ./circuits/my_circuit \
 Update the circuit of an existing `ComplianceDefinition`. Compiles the new Noir circuit, deploys a new `HonkVerifier`, and calls `updateCircuit()` on the contract.
 
 ```sh
-regulator-cli update-circuit ./circuits/updated_circuit \
+regulator-cli update-circuit \
+  --circuit-dir ./circuits/updated_circuit \
   --compliance-definition 0xDEPLOYED_ADDRESS \
   --rpc-url https://sepolia.infura.io/v3/YOUR_KEY \
   --private-key 0xYOUR_PRIVATE_KEY \
@@ -116,7 +118,7 @@ regulator-cli update-circuit ./circuits/updated_circuit \
 
 | Argument | Required | Description |
 |----------|----------|-------------|
-| `<DIR>` (positional) | yes | Path to the Noir project directory |
+| `--circuit-dir` | yes | Path to the Noir project directory |
 | `--compliance-definition` | yes | Address of the existing ComplianceDefinition contract |
 | `--rpc-url` | yes | Target chain RPC endpoint |
 | `--private-key` | yes | Regulator private key |
