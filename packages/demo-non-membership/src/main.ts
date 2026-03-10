@@ -131,50 +131,86 @@ $btn.addEventListener("click", async () => {
     }
 
     // Non-membership input formatter:
-    // fetches sorted leaves, finds the two adjacent leaves that sandwich the
-    // user address, computes merkle proofs for both, and maps the result
-    // onto the non_membership circuit's expected inputs.
+    // fetches sorted leaves, determines the proof type (sandwich, below-min,
+    // or above-max), computes the appropriate merkle proofs, and maps the
+    // result onto the non_membership circuit's expected inputs.
     const nonMembershipFormatter: InputFormatter = async (ctx) => {
       setStatus("Fetching merkle leaves from IPFS...");
       const leaves = await ctx.proofManager.fetchLeaves(ctx.definition.leavesHash);
 
-      setStatus("Finding sandwich leaves...");
+      if (leaves.length === 0) {
+        throw new Error("No leaves in the compliance set.");
+      }
+
       const target = BigInt(userAddr);
 
-      // Leaves are sorted in the tree. Find the insertion point where
-      // target would sit — lower is the leaf just before, upper just after.
-      let upperIdx = leaves.findIndex((leaf) => leaf > target);
-      if (upperIdx === -1) {
-        throw new Error(
-          "Address is greater than or equal to all leaves — no upper bound exists for non-membership proof.",
-        );
-      }
-      if (upperIdx === 0) {
-        throw new Error(
-          "Address is less than the smallest leaf — no lower bound exists for non-membership proof.",
-        );
-      }
-      const lowerIdx = upperIdx - 1;
-
-      // Ensure the address isn't actually IN the set
-      if (leaves[lowerIdx] === target || leaves[upperIdx] === target) {
-        throw new Error("Address IS in the compliance set — cannot prove non-membership.");
+      // Check if the address is actually in the set
+      if (leaves.some((l) => l === target)) {
+        throw new Error("Address IS in the compliance set -- cannot prove non-membership.");
       }
 
-      setStatus("Computing merkle proofs for sandwich leaves...");
-      const lowerProof = computeMerkleProof(leaves, lowerIdx);
-      const upperProof = computeMerkleProof(leaves, upperIdx);
+      // Leaves are sorted. Determine which proof type to use.
+      if (target < leaves[0]) {
+        // Below minimum: address is less than the smallest leaf
+        setStatus("Address is below all leaves, computing below-min proof...");
+        const upperProof = computeMerkleProof(leaves, 0);
 
-      return {
-        root: ctx.definition.merkleRoot,
-        address: userAddr,
-        lower_leaf: toHex(leaves[lowerIdx]),
-        upper_leaf: toHex(leaves[upperIdx]),
-        lower_index: lowerProof.index,
-        upper_index: upperProof.index,
-        lower_hash_path: lowerProof.hashPath,
-        upper_hash_path: upperProof.hashPath,
-      };
+        return {
+          root: ctx.definition.merkleRoot,
+          address: userAddr,
+          lower_leaf: toHex(0n),
+          upper_leaf: toHex(leaves[0]),
+          lower_index: "0",
+          upper_index: upperProof.index,
+          lower_hash_path: upperProof.hashPath,
+          upper_hash_path: upperProof.hashPath,
+          proof_type: "1",
+        };
+      } else if (target > leaves[leaves.length - 1]) {
+        // Above maximum: address is greater than the largest leaf.
+        // Prove the last leaf is in the tree and the next position is empty.
+        setStatus("Address is above all leaves, computing above-max proof...");
+        const lastIdx = leaves.length - 1;
+        const lowerProof = computeMerkleProof(leaves, lastIdx);
+
+        // Compute merkle path for the empty position at index lastIdx+1.
+        // Appending 0n doesn't change the sparse tree (0n leaves are skipped).
+        const leavesWithEmpty = [...leaves, 0n];
+        const emptyProof = computeMerkleProof(leavesWithEmpty, leaves.length);
+
+        return {
+          root: ctx.definition.merkleRoot,
+          address: userAddr,
+          lower_leaf: toHex(leaves[lastIdx]),
+          upper_leaf: toHex(0n),
+          lower_index: lowerProof.index,
+          upper_index: "0",
+          lower_hash_path: lowerProof.hashPath,
+          upper_hash_path: emptyProof.hashPath,
+          proof_type: "2",
+        };
+      } else {
+        // Normal sandwich: find two adjacent leaves that bound the address
+        setStatus("Finding sandwich leaves...");
+        const upperIdx = leaves.findIndex((leaf) => leaf > target);
+        const lowerIdx = upperIdx - 1;
+
+        setStatus("Computing merkle proofs for sandwich leaves...");
+        const lowerProof = computeMerkleProof(leaves, lowerIdx);
+        const upperProof = computeMerkleProof(leaves, upperIdx);
+
+        return {
+          root: ctx.definition.merkleRoot,
+          address: userAddr,
+          lower_leaf: toHex(leaves[lowerIdx]),
+          upper_leaf: toHex(leaves[upperIdx]),
+          lower_index: lowerProof.index,
+          upper_index: upperProof.index,
+          lower_hash_path: lowerProof.hashPath,
+          upper_hash_path: upperProof.hashPath,
+          proof_type: "0",
+        };
+      }
     };
 
     setStatus("Generating proof... (this may take 30-60 seconds)");
