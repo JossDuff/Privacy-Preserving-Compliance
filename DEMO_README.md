@@ -109,6 +109,7 @@ cd contracts
 
 # SafeSwap token
 forge create src/CompliantToken.sol:CompliantToken \
+  --broadcast \
   --rpc-url $RPC_URL \
   --private-key $PRIVATE_KEY \
   --constructor-args $SANCTION_CD_ADDRESS "SafeSwap" "SAFE" \
@@ -117,6 +118,7 @@ forge create src/CompliantToken.sol:CompliantToken \
 
 # CleanMixer token
 forge create src/CompliantToken.sol:CompliantToken \
+  --broadcast \
   --rpc-url $RPC_URL \
   --private-key $PRIVATE_KEY \
   --constructor-args $SANCTION_CD_ADDRESS "CleanMixer" "CMIX" \
@@ -125,6 +127,7 @@ forge create src/CompliantToken.sol:CompliantToken \
 
 # VerifiedLend token
 forge create src/CompliantToken.sol:CompliantToken \
+  --broadcast \
   --rpc-url $RPC_URL \
   --private-key $PRIVATE_KEY \
   --constructor-args $WHITELIST_CD_ADDRESS "VerifiedLend" "VLEND" \
