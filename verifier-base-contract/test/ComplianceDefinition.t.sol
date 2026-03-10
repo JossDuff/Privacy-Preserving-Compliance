@@ -65,11 +65,11 @@ contract ComplianceDefinitionTest is Test {
         assertEq(cd.getVersionCount(), 0);
     }
 
-    // -- updateConstraint --
+    // -- updateCircuit --
 
-    function test_updateConstraintAddsVersion() public {
+    function test_updateCircuitAddsVersion() public {
         vm.prank(regulator);
-        cd.updateConstraint(
+        cd.updateCircuit(
             address(mockVerifier),
             bytes32(uint256(0xabc)),
             0,
@@ -88,10 +88,10 @@ contract ComplianceDefinitionTest is Test {
         assertEq(v.metadataHash, "QmTestCid123");
     }
 
-    function test_updateConstraintRevertsForNonRegulator() public {
+    function test_updateCircuitRevertsForNonRegulator() public {
         vm.prank(nonRegulator);
         vm.expectRevert(ComplianceDefinition.NotRegulator.selector);
-        cd.updateConstraint(
+        cd.updateCircuit(
             address(mockVerifier),
             bytes32(0),
             0,
@@ -105,7 +105,7 @@ contract ComplianceDefinitionTest is Test {
 
     function test_updateParamsKeepsVerifier() public {
         vm.startPrank(regulator);
-        cd.updateConstraint(
+        cd.updateCircuit(
             address(mockVerifier),
             bytes32(uint256(1)),
             0,
@@ -116,10 +116,7 @@ contract ComplianceDefinitionTest is Test {
 
         cd.updateParams(
             bytes32(uint256(2)),
-            0,
-            type(uint256).max,
-            "QmVersion2",
-            ""
+            "QmVersion2Leaves"
         );
         vm.stopPrank();
 
@@ -128,22 +125,21 @@ contract ComplianceDefinitionTest is Test {
         ComplianceDefinition.ComplianceVersion memory v = cd.getActiveVersion();
         assertEq(v.verifier, address(mockVerifier));
         assertEq(v.merkleRoot, bytes32(uint256(2)));
-        assertEq(v.metadataHash, "QmVersion2");
     }
 
     function test_updateParamsRevertsForNonRegulator() public {
         vm.prank(regulator);
-        cd.updateConstraint(address(mockVerifier), bytes32(0), 0, type(uint256).max, "", "");
+        cd.updateCircuit(address(mockVerifier), bytes32(0), 0, type(uint256).max, "", "");
 
         vm.prank(nonRegulator);
         vm.expectRevert(ComplianceDefinition.NotRegulator.selector);
-        cd.updateParams(bytes32(uint256(2)), 0, type(uint256).max, "", "");
+        cd.updateParams(bytes32(uint256(2)), "");
     }
 
     function test_updateParamsRevertsWithNoActiveVersion() public {
         vm.prank(regulator);
         vm.expectRevert(ComplianceDefinition.NoActiveVersion.selector);
-        cd.updateParams(bytes32(uint256(2)), 0, type(uint256).max, "", "");
+        cd.updateParams(bytes32(uint256(2)), "");
     }
 
     // -- getActiveVersion --
@@ -155,8 +151,8 @@ contract ComplianceDefinitionTest is Test {
 
     function test_getActiveVersionReturnsLatestActive() public {
         vm.startPrank(regulator);
-        cd.updateConstraint(address(mockVerifier), bytes32(uint256(1)), 0, type(uint256).max, "", "");
-        cd.updateConstraint(address(mockVerifier), bytes32(uint256(2)), 0, type(uint256).max, "", "");
+        cd.updateCircuit(address(mockVerifier), bytes32(uint256(1)), 0, type(uint256).max, "", "");
+        cd.updateCircuit(address(mockVerifier), bytes32(uint256(2)), 0, type(uint256).max, "", "");
         vm.stopPrank();
 
         ComplianceDefinition.ComplianceVersion memory v = cd.getActiveVersion();
@@ -166,9 +162,9 @@ contract ComplianceDefinitionTest is Test {
     function test_getActiveVersionRespectsTimeWindow() public {
         vm.startPrank(regulator);
         // Version active from block 0 to 100
-        cd.updateConstraint(address(mockVerifier), bytes32(uint256(1)), 0, 100, "", "");
+        cd.updateCircuit(address(mockVerifier), bytes32(uint256(1)), 0, 100, "", "");
         // Version active from block 200 to max
-        cd.updateConstraint(address(mockVerifier), bytes32(uint256(2)), 200, type(uint256).max, "", "");
+        cd.updateCircuit(address(mockVerifier), bytes32(uint256(2)), 200, type(uint256).max, "", "");
         vm.stopPrank();
 
         // At block 50, version 1 should be active
@@ -191,8 +187,8 @@ contract ComplianceDefinitionTest is Test {
 
     function test_getVersionAtReturnsCorrectVersion() public {
         vm.startPrank(regulator);
-        cd.updateConstraint(address(mockVerifier), bytes32(uint256(1)), 0, 100, "", "");
-        cd.updateConstraint(address(mockVerifier), bytes32(uint256(2)), 101, 200, "", "");
+        cd.updateCircuit(address(mockVerifier), bytes32(uint256(1)), 0, 100, "", "");
+        cd.updateCircuit(address(mockVerifier), bytes32(uint256(2)), 101, 200, "", "");
         vm.stopPrank();
 
         ComplianceDefinition.ComplianceVersion memory v = cd.getVersionAt(50);
@@ -204,7 +200,7 @@ contract ComplianceDefinitionTest is Test {
 
     function test_getVersionAtRevertsForInvalidBlock() public {
         vm.prank(regulator);
-        cd.updateConstraint(address(mockVerifier), bytes32(uint256(1)), 10, 100, "", "");
+        cd.updateCircuit(address(mockVerifier), bytes32(uint256(1)), 10, 100, "", "");
 
         vm.expectRevert(abi.encodeWithSelector(ComplianceDefinition.NoVersionAtBlock.selector, 5));
         cd.getVersionAt(5);
@@ -214,7 +210,7 @@ contract ComplianceDefinitionTest is Test {
 
     function test_verifyForwardsToActiveVerifier() public {
         vm.prank(regulator);
-        cd.updateConstraint(address(mockVerifier), bytes32(uint256(0xdeadbeef)), 0, type(uint256).max, "", "");
+        cd.updateCircuit(address(mockVerifier), bytes32(uint256(0xdeadbeef)), 0, type(uint256).max, "", "");
 
         bool result = cd.verify(hex"");
         assertTrue(result);
@@ -225,7 +221,7 @@ contract ComplianceDefinitionTest is Test {
         bytes32 expectedRoot = bytes32(uint256(0x1234));
 
         vm.prank(regulator);
-        cd.updateConstraint(address(capturingVerifier), expectedRoot, 0, type(uint256).max, "", "");
+        cd.updateCircuit(address(capturingVerifier), expectedRoot, 0, type(uint256).max, "", "");
 
         address caller = address(0xBEEF);
         vm.prank(caller);
@@ -240,7 +236,7 @@ contract ComplianceDefinitionTest is Test {
         MockFailVerifier failVerifier = new MockFailVerifier();
 
         vm.prank(regulator);
-        cd.updateConstraint(address(failVerifier), bytes32(0), 0, type(uint256).max, "", "");
+        cd.updateCircuit(address(failVerifier), bytes32(0), 0, type(uint256).max, "", "");
 
         bool result = cd.verify(hex"");
         assertFalse(result);
@@ -257,10 +253,10 @@ contract ComplianceDefinitionTest is Test {
         vm.startPrank(regulator);
         assertEq(cd.getVersionCount(), 0);
 
-        cd.updateConstraint(address(mockVerifier), bytes32(0), 0, type(uint256).max, "", "");
+        cd.updateCircuit(address(mockVerifier), bytes32(0), 0, type(uint256).max, "", "");
         assertEq(cd.getVersionCount(), 1);
 
-        cd.updateConstraint(address(mockVerifier), bytes32(0), 0, type(uint256).max, "", "");
+        cd.updateCircuit(address(mockVerifier), bytes32(0), 0, type(uint256).max, "", "");
         assertEq(cd.getVersionCount(), 2);
         vm.stopPrank();
     }
