@@ -286,20 +286,30 @@ function initPanel(panel: PanelConfig) {
       const cached = pm.getCachedProof(panel.cdAddress);
 
       if (cached) {
-        setProofStatus("Already generated!");
-        const result = await pm.generateComplianceProof(panel.cdAddress,
-          panel.type === "non-membership"
-            ? createNonMembershipFormatter(walletAddress, appendProofStatus)
-            : createMembershipFormatter(walletAddress, appendProofStatus));
-        panelProofs.set(panel.id, result);
+        appendProofStatus("Fetching compliance definition...");
+        await pm.getActiveDefinition(panel.cdAddress);
+        appendProofStatus("Proof found in cache!");
+        panelProofs.set(panel.id, cached);
         mintBtn.disabled = false;
       } else {
+        appendProofStatus("Fetching compliance definition...");
+        const [definition, versionCount] = await Promise.all([
+          pm.getActiveDefinition(panel.cdAddress),
+          pm.getVersionCount(panel.cdAddress),
+        ]);
+
+        appendProofStatus("Fetching circuit from IPFS...");
+        const circuit = await pm.fetchCircuit(definition.metadataHash);
+
         const formatter = panel.type === "non-membership"
           ? createNonMembershipFormatter(walletAddress, appendProofStatus)
           : createMembershipFormatter(walletAddress, appendProofStatus);
 
-        const result = await pm.generateComplianceProof(panel.cdAddress, formatter);
+        const inputs = await formatter({ definition, circuit, proofManager: pm });
 
+        const result = await pm.prove(circuit, inputs);
+
+        pm.setCachedProof(panel.cdAddress, versionCount, result);
         panelProofs.set(panel.id, result);
         appendProofStatus("Proof generated!");
         mintBtn.disabled = false;

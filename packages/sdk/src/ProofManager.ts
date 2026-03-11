@@ -98,6 +98,16 @@ export class ProofManager {
     return undefined;
   }
 
+  /** Store a proof in the cache for a given ComplianceDefinition and version. */
+  setCachedProof(
+    contractAddress: `0x${string}`,
+    versionCount: bigint,
+    result: ProofResult,
+  ): void {
+    const cacheKey = `${contractAddress.toLowerCase()}:${versionCount}`;
+    this.proofCache.set(cacheKey, result);
+  }
+
   /** Clear all cached proofs. */
   clearProofCache(): void {
     this.proofCache.clear();

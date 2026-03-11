@@ -19,26 +19,57 @@ export async function fetchCircuit(
     ? metadataHash.slice(6)
     : metadataHash;
 
-  // List directory contents via the gateway's JSON directory listing
+  // List directory contents via the gateway's UnixFS directory listing.
+  // Try multiple response formats for broad gateway compatibility.
   let links: { Name: string; Hash: string; Size: number }[];
   try {
-    const lsRes = await fetch(
-      `${baseUrl}/ipfs/${cid}/?format=dag-json`,
-      {
-        headers: { Accept: "application/vnd.ipld.dag-json" },
-      },
-    );
-    if (!lsRes.ok) {
-      throw new Error(`HTTP ${lsRes.status}: ${await lsRes.text()}`);
+    // First try dag-json (Kubo gateways)
+    let lsRes = await fetch(`${baseUrl}/ipfs/${cid}/?format=dag-json`, {
+      headers: { Accept: "application/vnd.ipld.dag-json" },
+    });
+
+    if (lsRes.ok) {
+      const dag = await lsRes.json();
+      links = (dag.Links ?? []).map(
+        (l: { Name: string; Hash: { "/": string }; Tsize: number }) => ({
+          Name: l.Name,
+          Hash: l.Hash["/"],
+          Size: l.Tsize,
+        }),
+      );
+    } else {
+      // Fall back to Accept: application/json (ipfs.io, Pinata, etc.)
+      lsRes = await fetch(`${baseUrl}/ipfs/${cid}/`, {
+        headers: { Accept: "application/json" },
+      });
+      if (!lsRes.ok) {
+        throw new Error(`HTTP ${lsRes.status}: ${await lsRes.text()}`);
+      }
+      const contentType = lsRes.headers.get("content-type") || "";
+      if (contentType.includes("application/json")) {
+        const json = await lsRes.json();
+        // Handle UnixFS directory JSON format (used by ipfs.io)
+        if (json.Links) {
+          links = json.Links.map(
+            (l: { Name: string; Hash: string; Size: number }) => l,
+          );
+        } else {
+          throw new Error("Unexpected JSON format from gateway");
+        }
+      } else {
+        // Gateway returned HTML directory listing; parse file links from it
+        const html = await lsRes.text();
+        const matches = [...html.matchAll(/href="([^"]+\.json)"/g)];
+        if (matches.length === 0) {
+          throw new Error("Could not find .json files in directory listing");
+        }
+        links = matches.map((m) => ({
+          Name: m[1].replace(/^\.\//, ""),
+          Hash: "",
+          Size: 0,
+        }));
+      }
     }
-    const dag = await lsRes.json();
-    links = (dag.Links ?? []).map(
-      (l: { Name: string; Hash: { "/": string }; Tsize: number }) => ({
-        Name: l.Name,
-        Hash: l.Hash["/"],
-        Size: l.Tsize,
-      }),
-    );
   } catch (err) {
     throw new Error(
       `Failed to list IPFS directory ${cid} from ${baseUrl}: ${err instanceof Error ? err.message : err}`,
