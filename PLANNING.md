@@ -196,6 +196,9 @@ Still required, but we should focus on the MVP first
   - [ ] Transpiler to Noir
 - [ ] Example constraints in DSL
 
+#### Benchmark improvements
+- [ ] Per browser benchmarks.  Investigate proof generation in chrome, firefox, safari, etc
+
 #### Web Applications
 - [ ] Proof manager web UI
   - [ ] Browser-based proof generation
