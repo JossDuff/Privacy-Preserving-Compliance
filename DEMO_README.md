@@ -53,6 +53,12 @@ It calls `ComplianceDefinition.verify(proof)` atomically -- if the proof is inva
 
 Before running the demo, you need 5 deployed contracts on Sepolia: 2 ComplianceDefinitions and 3 CompliantTokens.
 
+### 0. Copy and fill out .env
+
+```sh
+cp example.env .env
+```
+
 ### 1. Build the merkle trees
 
 Use the build-merkle tool to construct leaves files and compute merkle roots. The sanction list must be sorted (required by the non-membership circuit):
