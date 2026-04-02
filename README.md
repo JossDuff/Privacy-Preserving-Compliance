@@ -13,10 +13,6 @@ This framework is distinguished by its composability and generality, designed ex
 This is the general interaction between actors in this framework, not specific to this implementation.
 ![High level framework diagram](thesis-impl-broad.png)
 
-### Framework implementation diagram
-The specific implementation of the framework that this repository holds.
-![Repo specific framework implementation diagram](thesis-impl.png)
-
 ### Key Features
 
 - **No Deanonymization**: Users prove compliance without revealing transaction histories or balances
@@ -59,7 +55,11 @@ The framework supports three types of actors:
 ```
 
 # What's in this repository
-This repository contains an implementation of the tools described in the thesis document and a demo that uses those tools.
+This repository contains an implementation of the framework described in the thesis document and a demo.
+
+### Framework implementation diagram
+The specific implementation of the framework that this repository holds.
+![Repo specific framework implementation diagram](thesis-impl.png)
 
 ## tool: `regulator-cli`
 Command line Rust binary to be used by regulators to construct a compliance definition, upload it to IPFS as a noir circuit, and publish a verifier contract on-chain.  
