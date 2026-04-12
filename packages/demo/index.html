@@ -22,14 +22,14 @@
       margin-bottom: 1.5rem;
     }
     .header h1 {
-      font-size: 1.1rem;
+      font-size: 1.7rem;
       font-weight: 400;
       color: #999;
       text-align: center;
       margin-bottom: 0.75rem;
     }
     .header p {
-      font-size: 0.85rem;
+      font-size: 1.25rem;
       color: #777;
       text-align: center;
       line-height: 1.5;
@@ -80,16 +80,16 @@
       flex-direction: column;
       gap: 0.75rem;
     }
-    .panel[data-color="red"]   { border-color: #ef4444; }
-    .panel[data-color="green"] { border-color: #22c55e; }
+    .panel[data-color="coral"] { border-color: #fb7185; }
+    .panel[data-color="teal"]   { border-color: #14b8a6; }
     .panel[data-color="blue"]  { border-color: #3b82f6; }
 
     .panel-name {
       font-size: 1rem;
       font-weight: 600;
     }
-    .panel[data-color="red"]   .panel-name { color: #ef4444; }
-    .panel[data-color="green"] .panel-name { color: #22c55e; }
+    .panel[data-color="coral"] .panel-name { color: #fb7185; }
+    .panel[data-color="teal"]   .panel-name { color: #14b8a6; }
     .panel[data-color="blue"]  .panel-name { color: #3b82f6; }
 
     /* -- Panel sections (inner boxes) -- */
@@ -100,10 +100,8 @@
       padding: 0.75rem;
     }
     .section-label {
-      font-size: 0.7rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: #666;
+      font-size: 0.95rem;
+      color: #bbb;
       margin-bottom: 0.4rem;
     }
     .section .addr {
@@ -146,8 +144,8 @@
     .btn-mint {
       color: #fff;
     }
-    .panel[data-color="red"]   .btn-mint { background: #ef4444; }
-    .panel[data-color="green"] .btn-mint { background: #22c55e; }
+    .panel[data-color="coral"] .btn-mint { background: #fb7185; }
+    .panel[data-color="teal"]   .btn-mint { background: #14b8a6; }
     .panel[data-color="blue"]  .btn-mint { background: #3b82f6; }
 
     /* -- Status text -- */
@@ -274,7 +272,7 @@
       background: #555;
     }
     .flow-arrow-label {
-      font-size: 0.78rem;
+      font-size: 1.2rem;
       color: #999;
       font-style: italic;
       padding: 0.25rem 0;
@@ -308,7 +306,7 @@
   <!-- Blurb -->
   <div style="text-align:center; margin:0 auto 2rem;">
     <h1 style="font-size:1.3rem; font-weight:600; color:#e0e0e0; margin-bottom:0.5rem; white-space:nowrap;">Real-world regulation enforced on-chain with zero-knowledge proofs</h1>
-    <p style="font-size:0.9rem; color:#888;">Users prove they're compliant with your requirements without revealing any other information</p>
+    <p style="font-size:1.15rem; color:#888;">Users prove they're compliant with your requirements without revealing any other information</p>
   </div>
 
   <!-- High-level flow -->
@@ -405,50 +403,51 @@
 }</code></pre>
     </div>
 
+    <!-- Arrow 4 -->
+    <div class="flow-arrow">
+      <div class="flow-arrow-line"></div>
+      <div class="flow-arrow-label">User generates zero-knowledge proof of compliance</div>
+      <div class="flow-arrow-line"></div>
+      <div class="flow-arrow-head"></div>
+    </div>
+
+    <!-- Box 5: Proof output -->
+    <div class="flow-box">
+      <div style="font-family:monospace; font-size:0.85rem; color:#aaa; word-break:break-all;">0x1a3f7c9e2b8d04f6e5a73b1c8d2e9f4a6b0d3e7f82c5a19b4e0d6f3a28...</div>
+    </div>
+
   </div>
 
   <!-- Header -->
   <div class="header">
     <h1>Privacy Preserving Compliance Demo <span style="font-size:0.75rem;color:#666">(Sepolia Testnet)</span></h1>
     <p>
-      Three example applications demonstrate the privacy-preserving compliance framework.
-      Each app uses a placeholder ERC-20 token to mimic a real application's integration.
-      The token's <code>mint</code> function requires a valid zero-knowledge compliance proof before executing.
+      <strong style="color:#fb7185">SafeSwap</strong> and <strong style="color:#14b8a6">CleanMixer</strong> require a proof of <strong>the same</strong> compliance definition: your address is not on a specific sanction list.
+      Generate the proof once and use it for both applications.
     </p>
     <p style="margin-top: 0.5rem">
-      <strong>SafeSwap</strong> and <strong>CleanMixer</strong> share the same non-membership ComplianceDefinition (sanction list),
-      so a proof generated for one is reused instantly by the other.
-      <strong>VerifiedLend</strong> uses a separate membership ComplianceDefinition (whitelist).
+      <strong style="color:#3b82f6">VerifiedLend</strong> requires a proof that your address is on a specific whitelist.
     </p>
-    <div class="wallet-bar">
-      <button id="connectWallet">Connect Wallet</button>
-      <span id="walletAddr"></span>
-    </div>
+    <p style="margin-top: 0.75rem; font-size:0.75rem; color:#666;">
+      (These example applications are simply ERC-20 contracts for demonstration purposes)
+    </p>
+  </div>
+
+  <div class="wallet-bar" style="margin-bottom: 1.5rem;">
+    <button id="connectWallet">Connect Wallet</button>
+    <span id="walletAddr"></span>
   </div>
 
   <!-- 3 App Panels -->
   <div class="panels">
 
     <!-- App 1: SafeSwap -->
-    <div class="panel" data-color="red" id="app1">
-      <div class="panel-name">SafeSwap</div>
+    <div class="panel" data-color="coral" id="app1">
+      <div class="panel-name">SafeSwap <span data-ref="tokenAddr" style="font-family:monospace;font-size:0.72rem;color:#888;font-weight:400">--</span></div>
 
       <div class="section">
-        <div class="section-label">User Address</div>
-        <div class="addr" data-ref="userAddr">--</div>
-      </div>
-
-      <div class="section">
-        <div class="section-label">ComplianceDefinition</div>
+        <div class="section-label">Required compliance: <strong data-ref="cdName">sanction list</strong></div>
         <div class="addr" data-ref="cdAddr">--</div>
-        <div class="info-row">
-          <span class="label">Name</span>
-          <span data-ref="cdName">--</span>
-        </div>
-        <div class="info-row">
-          <span class="label">Token</span>
-          <span data-ref="tokenAddr" style="font-family:monospace;font-size:0.72rem">--</span>
-        </div>
       </div>
 
       <button class="btn-proof" data-ref="proofBtn" disabled>Generate Proof</button>
@@ -459,25 +458,12 @@
     </div>
 
     <!-- App 2: CleanMixer -->
-    <div class="panel" data-color="green" id="app2">
-      <div class="panel-name">CleanMixer</div>
+    <div class="panel" data-color="teal" id="app2">
+      <div class="panel-name">CleanMixer <span data-ref="tokenAddr" style="font-family:monospace;font-size:0.72rem;color:#888;font-weight:400">--</span></div>
 
       <div class="section">
-        <div class="section-label">User Address</div>
-        <div class="addr" data-ref="userAddr">--</div>
-      </div>
-
-      <div class="section">
-        <div class="section-label">ComplianceDefinition</div>
+        <div class="section-label">Required compliance: <strong data-ref="cdName">sanction list</strong></div>
         <div class="addr" data-ref="cdAddr">--</div>
-        <div class="info-row">
-          <span class="label">Name</span>
-          <span data-ref="cdName">--</span>
-        </div>
-        <div class="info-row">
-          <span class="label">Token</span>
-          <span data-ref="tokenAddr" style="font-family:monospace;font-size:0.72rem">--</span>
-        </div>
       </div>
 
       <button class="btn-proof" data-ref="proofBtn" disabled>Generate Proof</button>
@@ -489,24 +475,11 @@
 
     <!-- App 3: VerifiedLend -->
     <div class="panel" data-color="blue" id="app3">
-      <div class="panel-name">VerifiedLend</div>
+      <div class="panel-name">VerifiedLend <span data-ref="tokenAddr" style="font-family:monospace;font-size:0.72rem;color:#888;font-weight:400">--</span></div>
 
       <div class="section">
-        <div class="section-label">User Address</div>
-        <div class="addr" data-ref="userAddr">--</div>
-      </div>
-
-      <div class="section">
-        <div class="section-label">ComplianceDefinition</div>
+        <div class="section-label">Required compliance: <strong data-ref="cdName">whitelist</strong></div>
         <div class="addr" data-ref="cdAddr">--</div>
-        <div class="info-row">
-          <span class="label">Name</span>
-          <span data-ref="cdName">--</span>
-        </div>
-        <div class="info-row">
-          <span class="label">Token</span>
-          <span data-ref="tokenAddr" style="font-family:monospace;font-size:0.72rem">--</span>
-        </div>
       </div>
 
       <button class="btn-proof" data-ref="proofBtn" disabled>Generate Proof</button>
