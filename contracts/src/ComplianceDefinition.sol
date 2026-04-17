@@ -32,6 +32,7 @@ contract ComplianceDefinition {
     struct ComplianceVersion {
         address verifier;
         bytes32 merkleRoot;
+        bytes32 merkleRoot2;
         uint256 tStart;
         uint256 tEnd;
         string metadataHash;
@@ -95,6 +96,7 @@ contract ComplianceDefinition {
         bytes32[] memory publicInputs = new bytes32[](2);
         publicInputs[0] = bytes32(uint256(uint160(tx.origin)));
         publicInputs[1] = v.merkleRoot;
+        publicInputs[2] = v.merkleRoot2;
         return IVerifier(v.verifier).verify(proof, publicInputs);
     }
 
