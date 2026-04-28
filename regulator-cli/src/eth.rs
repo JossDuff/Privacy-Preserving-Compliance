@@ -14,16 +14,25 @@ sol! {
     contract ComplianceDefinition {
         function updateCircuit(
             address newVerifier,
-            bytes32 newMerkleRoot,
+<<<<<<< HEAD
+            bytes32 newMerkleRoot_1,
+            bytes32 newMerkleRoot_2,
+=======
+            bytes32 newMerkleRoot1,
+            bytes32 newMerkleRoot2,
+>>>>>>> b95ae85 (Integrate dual Merkle roots and leaves into SDK and demo)
             uint256 tStart,
             uint256 tEnd,
             string calldata metadataHash,
-            string calldata leavesHash
+            string calldata leavesHash,
+            string calldata leavesHashB
         ) external;
 
         function updateParams(
-            bytes32 newMerkleRoot,
-            string calldata newLeavesHash
+            bytes32 newMerkleRoot1,
+            bytes32 newMerkleRoot2,
+            string calldata newLeavesHash,
+            string calldata newLeavesHashB
         ) external;
     }
 }
@@ -170,16 +179,36 @@ pub async fn call_update_circuit(
     provider: &(impl Provider<Ethereum> + Clone),
     compliance_definition_addr: Address,
     new_verifier: Address,
-    merkle_root: FixedBytes<32>,
+<<<<<<< HEAD
+    merkle_root_1: FixedBytes<32>,
+    merkle_root_2: FixedBytes<32>,
+=======
+    merkle_root1: FixedBytes<32>,
+    merkle_root2: FixedBytes<32>,
+>>>>>>> b95ae85 (Integrate dual Merkle roots and leaves into SDK and demo)
     t_start: U256,
     t_end: U256,
     metadata_uri: String,
     leaves_hash: String,
+    leaves_hash_b: String,
 ) -> Result<FixedBytes<32>> {
     let contract = ComplianceDefinition::new(compliance_definition_addr, provider);
 
     let pending_tx = contract
-        .updateCircuit(new_verifier, merkle_root, t_start, t_end, metadata_uri, leaves_hash)
+<<<<<<< HEAD
+        .updateCircuit(new_verifier, merkle_root_1, merkle_root_2, t_start, t_end, metadata_uri, leaves_hash)
+=======
+        .updateCircuit(
+            new_verifier,
+            merkle_root1,
+            merkle_root2,
+            t_start,
+            t_end,
+            metadata_uri,
+            leaves_hash,
+            leaves_hash_b,
+        )
+>>>>>>> b95ae85 (Integrate dual Merkle roots and leaves into SDK and demo)
         .send()
         .await
         .context("failed to broadcast updateCircuit transaction")?;
@@ -197,13 +226,19 @@ pub async fn call_update_circuit(
 pub async fn call_update_params(
     provider: &(impl Provider<Ethereum> + Clone),
     compliance_definition_addr: Address,
-    merkle_root: FixedBytes<32>,
+    merkle_root1: FixedBytes<32>,
+    merkle_root2: FixedBytes<32>,
     leaves_hash: String,
+    leaves_hash_b: String,
 ) -> Result<FixedBytes<32>> {
     let contract = ComplianceDefinition::new(compliance_definition_addr, provider);
 
     let pending_tx = contract
-        .updateParams(merkle_root, leaves_hash)
+<<<<<<< HEAD
+        .updateParams(merkle_root1, leaves_hash)
+=======
+        .updateParams(merkle_root1, merkle_root2, leaves_hash, leaves_hash_b)
+>>>>>>> b95ae85 (Integrate dual Merkle roots and leaves into SDK and demo)
         .send()
         .await
         .context("failed to broadcast updateParams transaction")?;
