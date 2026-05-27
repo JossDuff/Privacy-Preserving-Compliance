@@ -1,5 +1,5 @@
 # Privacy-Preserving-Compliance
-Prototype implementation of my master's thesis framework `Privacy Preserving Compliance`.  The full document can be found at [https://github.com/JossDuff/thesis](https://github.com/JossDuff/thesis).
+Prototype implementation of my master's thesis framework `Privacy Preserving Compliance`.  The full document can be found at [https://github.com/JossDuff/thesis](https://github.com/JossDuff/thesis).  The demo is hosted at [https://jossduff.com/privacy-preserving-compliance-demo/](https://jossduff.com/privacy-preserving-compliance-demo/).
 
 This code is for demonstration purposes only.  It is not audited and should not be used in production environments.
 

@@ -129,15 +129,12 @@ pub async fn run(
         eprintln!("  Using pre-pinned circuit CID: {cid}");
         (cid, String::new())
     } else {
-        eprintln!("  Uploading {} and compiled output...", source_file.display());
-        let ipfs_response = ipfs::add_directory(
-            ipfs_rpc_url,
-            &[source_file.as_path(), bytecode_path.as_path()],
-        )
-        .await
-        .with_context(|| {
-            format!("failed to upload circuit files to IPFS at {ipfs_rpc_url}")
-        })?;
+        eprintln!("  Uploading compiled circuit {}...", bytecode_path.display());
+        let ipfs_response = ipfs::add_file(ipfs_rpc_url, &bytecode_path)
+            .await
+            .with_context(|| {
+                format!("failed to upload compiled circuit to IPFS at {ipfs_rpc_url}")
+            })?;
         eprintln!("  CID: {}", ipfs_response.hash);
         (ipfs_response.hash, ipfs_response.size)
     };

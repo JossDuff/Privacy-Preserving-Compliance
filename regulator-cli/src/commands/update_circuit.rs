@@ -59,8 +59,6 @@ pub async fn run(
         );
     }
 
-    let source_file = nargo::find_source_file(&project_dir)?;
-
     // 1. Validate circuit
     eprintln!("validating circuit...");
     nargo::check(&project_dir)
@@ -84,21 +82,18 @@ pub async fn run(
     bb::write_solidity_verifier(&vk_path, &verifier_path)?;
     eprintln!("Solidity verifier generated");
 
-    // 5. Upload circuit source and compiled output to IPFS (or skip if --circuit-cid given)
+    // 5. Upload compiled circuit to IPFS (or skip if --circuit-cid given)
     let (circuit_cid, circuit_ipfs_size) = if let Some(cid) = circuit_cid_override {
         eprintln!("using pre-pinned circuit CID: {cid}");
         (cid, String::new())
     } else {
-        eprintln!("uploading circuit files to IPFS...");
-        let response = ipfs::add_directory(
-            ipfs_rpc_url,
-            &[source_file.as_path(), bytecode_path.as_path()],
-        )
-        .await
-        .with_context(|| {
-            format!("failed to upload circuit files to IPFS at {ipfs_rpc_url}")
-        })?;
-        eprintln!("uploaded to IPFS");
+        eprintln!("uploading compiled circuit {}...", bytecode_path.display());
+        let response = ipfs::add_file(ipfs_rpc_url, &bytecode_path)
+            .await
+            .with_context(|| {
+                format!("failed to upload compiled circuit to IPFS at {ipfs_rpc_url}")
+            })?;
+        eprintln!("uploaded to IPFS: {}", response.hash);
         (response.hash, response.size)
     };
 
