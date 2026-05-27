@@ -22,14 +22,14 @@ const ARTIFACTS = [
     key: "non_membership_circuit",
     path: `${repoRoot}/circuits/non_membership/target/non_membership.json`,
     fileName: "non_membership.json",
-    wrap: true,
+    wrap: false,
     metadataName: "ppc-demo non_membership circuit",
   },
   {
     key: "membership_circuit",
     path: `${repoRoot}/circuits/membership/target/membership.json`,
     fileName: "membership.json",
-    wrap: true,
+    wrap: false,
     metadataName: "ppc-demo membership circuit",
   },
   {
