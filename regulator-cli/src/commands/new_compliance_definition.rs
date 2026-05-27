@@ -48,6 +48,8 @@ pub async fn run(
     t_start: &str,
     t_end: &str,
     leaves_file: Option<PathBuf>,
+    circuit_cid_override: Option<String>,
+    leaves_cid_override: Option<String>,
     receipts_dir: &Path,
     verify: &VerifyArgs,
 ) -> Result<()> {
@@ -121,21 +123,30 @@ pub async fn run(
     eprintln!("  Generating Solidity verifier...");
     bb::write_solidity_verifier(&vk_path, &verifier_path)?;
 
-    // ── IPFS Upload ──────────────────────────────────────────────────
+    // ── IPFS Upload (or skip if --circuit-cid given) ─────────────────
     eprintln!("\nIPFS Upload");
-    eprintln!("  Uploading {} and compiled output...", source_file.display());
-    let ipfs_response = ipfs::add_directory(
-        ipfs_rpc_url,
-        &[source_file.as_path(), bytecode_path.as_path()],
-    )
-    .await
-    .with_context(|| {
-        format!("failed to upload circuit files to IPFS at {ipfs_rpc_url}")
-    })?;
-    eprintln!("  CID: {}", ipfs_response.hash);
+    let (circuit_cid, circuit_ipfs_size) = if let Some(cid) = circuit_cid_override {
+        eprintln!("  Using pre-pinned circuit CID: {cid}");
+        (cid, String::new())
+    } else {
+        eprintln!("  Uploading {} and compiled output...", source_file.display());
+        let ipfs_response = ipfs::add_directory(
+            ipfs_rpc_url,
+            &[source_file.as_path(), bytecode_path.as_path()],
+        )
+        .await
+        .with_context(|| {
+            format!("failed to upload circuit files to IPFS at {ipfs_rpc_url}")
+        })?;
+        eprintln!("  CID: {}", ipfs_response.hash);
+        (ipfs_response.hash, ipfs_response.size)
+    };
 
-    // ── Leaves Upload ────────────────────────────────────────────────
-    let leaves_cid = if let Some(ref leaves_path) = leaves_file {
+    // ── Leaves Upload (or skip if --leaves-cid given) ────────────────
+    let leaves_cid = if let Some(cid) = leaves_cid_override {
+        eprintln!("  Using pre-pinned leaves CID: {cid}");
+        cid
+    } else if let Some(ref leaves_path) = leaves_file {
         eprintln!("  Uploading leaves file {}...", leaves_path.display());
         let leaves_response = ipfs::add_file(ipfs_rpc_url, leaves_path)
             .await
@@ -188,7 +199,7 @@ pub async fn run(
 
     // ── Compliance Registration ──────────────────────────────────────
     eprintln!("\nCompliance Registration");
-    let cid = &ipfs_response.hash;
+    let cid = &circuit_cid;
     let cd_addr = cd_result.deployed_to;
     let merkle_root_bytes: FixedBytes<32> = merkle_root
         .parse()
@@ -232,7 +243,7 @@ pub async fn run(
         rpc_url: rpc_url.to_string(),
         source_file: source_file.display().to_string(),
         cid: cid.to_string(),
-        ipfs_size: ipfs_response.size.clone(),
+        ipfs_size: circuit_ipfs_size,
         merkle_root: merkle_root.to_string(),
         verifier_address: verifier_result.deployed_to.to_string(),
         verifier_tx: verifier_result.transaction_hash.to_string(),
