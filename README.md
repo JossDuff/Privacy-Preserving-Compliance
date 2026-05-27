@@ -1,5 +1,5 @@
 # Privacy-Preserving-Compliance
-Prototype implementation of my master's thesis framework `Privacy Preserving Compliance`.  The full document can be found at [https://github.com/JossDuff/thesis](https://github.com/JossDuff/thesis).
+Prototype implementation of my master's thesis framework `Privacy Preserving Compliance`.  The full document can be found at [https://github.com/JossDuff/thesis](https://github.com/JossDuff/thesis).  The demo is hosted at [https://jossduff.com/privacy-preserving-compliance-demo/](https://jossduff.com/privacy-preserving-compliance-demo/).
 
 This code is for demonstration purposes only.  It is not audited and should not be used in production environments.
 
@@ -53,7 +53,7 @@ This tool lives in `packages/sdk/`.  See `PROOF_MANAGER_README.md` for more deta
 ## Demo
 The demo uses the `regulator-cli` to construct multiple compliance definitions, deploys example stub applications (ERC-20) that require a proof of those compliance definitions, and generates proofs of them using the `proof manager sdk`.
 
-This demo lives in `sdk/demo/`.  See `DEMO_README.md` for more details.
+This demo lives in `packages/demo`.  See `DEMO_README.md` for more details.
 
 ## Auxillary tool: `build-merkle`
 Builds a poseidon2 Merkle tree using a TypeScript library compatible with Noir's poseidon2.  This is just a helper tool to easily generate Merkle trees and roots for input to the regulator-cli when creating the demo.  This tool is specifically used for generating inputs to the `circuits/membership` and `circuits/non_membership` Noir verifiers.

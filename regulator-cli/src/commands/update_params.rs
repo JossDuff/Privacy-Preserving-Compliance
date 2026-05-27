@@ -16,24 +16,34 @@ pub struct UpdateParamsData {
     pub update_tx_hash: String,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn run(
     compliance_definition: &str,
     ipfs_rpc_url: &str,
     rpc_url: &str,
     private_key: &str,
     merkle_root: &str,
-    leaves_file: PathBuf,
+    leaves_file: Option<PathBuf>,
+    leaves_cid_override: Option<String>,
     receipts_dir: &Path,
 ) -> Result<()> {
-    // 1. Upload leaves file to IPFS
-    eprintln!("uploading leaves file {}...", leaves_file.display());
-    let leaves_response = ipfs::add_file(ipfs_rpc_url, &leaves_file)
-        .await
-        .with_context(|| {
-            format!("failed to upload leaves file to IPFS at {ipfs_rpc_url}")
-        })?;
-    let leaves_cid = &leaves_response.hash;
-    eprintln!("leaves uploaded to IPFS: {leaves_cid}");
+    // 1. Resolve the leaves CID: either upload, or use the pre-pinned override.
+    let (leaves_cid, leaves_file_display) = if let Some(cid) = leaves_cid_override {
+        eprintln!("using pre-pinned leaves CID: {cid}");
+        (cid, String::new())
+    } else {
+        let leaves_path = leaves_file
+            .as_ref()
+            .context("either --leaves-file or --leaves-cid must be provided")?;
+        eprintln!("uploading leaves file {}...", leaves_path.display());
+        let leaves_response = ipfs::add_file(ipfs_rpc_url, leaves_path)
+            .await
+            .with_context(|| {
+                format!("failed to upload leaves file to IPFS at {ipfs_rpc_url}")
+            })?;
+        eprintln!("leaves uploaded to IPFS: {}", leaves_response.hash);
+        (leaves_response.hash, leaves_path.display().to_string())
+    };
 
     // 2. Call updateParams on the ComplianceDefinition contract
     let cd_addr: Address = compliance_definition
@@ -63,7 +73,7 @@ pub async fn run(
     let data = UpdateParamsData {
         compliance_definition: compliance_definition.to_string(),
         merkle_root: merkle_root.to_string(),
-        leaves_file: leaves_file.display().to_string(),
+        leaves_file: leaves_file_display,
         leaves_cid: leaves_cid.to_string(),
         update_tx_hash: update_tx_hash.to_string(),
     };

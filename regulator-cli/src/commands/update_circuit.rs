@@ -43,6 +43,8 @@ pub async fn run(
     t_start: &str,
     t_end: &str,
     leaves_file: Option<PathBuf>,
+    circuit_cid_override: Option<String>,
+    leaves_cid_override: Option<String>,
     receipts_dir: &Path,
     verify: &VerifyArgs,
 ) -> Result<()> {
@@ -56,8 +58,6 @@ pub async fn run(
             project_dir.display()
         );
     }
-
-    let source_file = nargo::find_source_file(&project_dir)?;
 
     // 1. Validate circuit
     eprintln!("validating circuit...");
@@ -82,20 +82,26 @@ pub async fn run(
     bb::write_solidity_verifier(&vk_path, &verifier_path)?;
     eprintln!("Solidity verifier generated");
 
-    // 5. Upload circuit source and compiled output to IPFS
-    eprintln!("uploading circuit files to IPFS...");
-    let response = ipfs::add_directory(
-        ipfs_rpc_url,
-        &[source_file.as_path(), bytecode_path.as_path()],
-    )
-    .await
-    .with_context(|| {
-        format!("failed to upload circuit files to IPFS at {ipfs_rpc_url}")
-    })?;
-    eprintln!("uploaded to IPFS");
+    // 5. Upload compiled circuit to IPFS (or skip if --circuit-cid given)
+    let (circuit_cid, circuit_ipfs_size) = if let Some(cid) = circuit_cid_override {
+        eprintln!("using pre-pinned circuit CID: {cid}");
+        (cid, String::new())
+    } else {
+        eprintln!("uploading compiled circuit {}...", bytecode_path.display());
+        let response = ipfs::add_file(ipfs_rpc_url, &bytecode_path)
+            .await
+            .with_context(|| {
+                format!("failed to upload compiled circuit to IPFS at {ipfs_rpc_url}")
+            })?;
+        eprintln!("uploaded to IPFS: {}", response.hash);
+        (response.hash, response.size)
+    };
 
-    // 5b. Upload leaves file if provided
-    let leaves_cid = if let Some(ref leaves_path) = leaves_file {
+    // 5b. Upload leaves file (or skip if --leaves-cid given)
+    let leaves_cid = if let Some(cid) = leaves_cid_override {
+        eprintln!("using pre-pinned leaves CID: {cid}");
+        cid
+    } else if let Some(ref leaves_path) = leaves_file {
         eprintln!("uploading leaves file {}...", leaves_path.display());
         let leaves_response = ipfs::add_file(ipfs_rpc_url, leaves_path)
             .await
@@ -151,7 +157,7 @@ pub async fn run(
     let verification = verification?;
 
     // 9. Call updateCircuit on the ComplianceDefinition contract
-    let cid = &response.hash;
+    let cid = &circuit_cid;
     let cd_addr: Address = compliance_definition
         .parse()
         .with_context(|| format!("invalid compliance definition address: {compliance_definition}"))?;
@@ -193,7 +199,7 @@ pub async fn run(
         vk_path: vk_path.display().to_string(),
         verifier_path: verifier_path.display().to_string(),
         cid: cid.to_string(),
-        ipfs_size: response.size,
+        ipfs_size: circuit_ipfs_size,
         merkle_root: merkle_root.to_string(),
         verifier_address: deploy_result.deployed_to.to_string(),
         deploy_tx_hash: deploy_result.transaction_hash.to_string(),

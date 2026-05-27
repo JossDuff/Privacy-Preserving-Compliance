@@ -84,8 +84,20 @@ enum Commands {
         t_end: String,
 
         /// JSON file containing merkle tree leaves to upload to IPFS
-        #[arg(long, value_name = "FILE")]
+        #[arg(long, value_name = "FILE", conflicts_with = "leaves_cid")]
         leaves_file: Option<PathBuf>,
+
+        /// Pre-pinned CID for the compiled circuit directory.  When set, the
+        /// circuit is still compiled locally to generate the verifier, but the
+        /// IPFS upload step is skipped and this CID is used as the on-chain
+        /// metadataHash.
+        #[arg(long, value_name = "CID")]
+        circuit_cid: Option<String>,
+
+        /// Pre-pinned CID for the leaves file.  Skips the leaves IPFS upload.
+        /// Mutually exclusive with --leaves-file.
+        #[arg(long, value_name = "CID")]
+        leaves_cid: Option<String>,
     },
     /// Update the circuit of an existing ComplianceDefinition: compile, deploy a new verifier, and register it
     UpdateCircuit {
@@ -126,8 +138,20 @@ enum Commands {
         t_end: String,
 
         /// JSON file containing merkle tree leaves to upload to IPFS
-        #[arg(long, value_name = "FILE")]
+        #[arg(long, value_name = "FILE", conflicts_with = "leaves_cid")]
         leaves_file: Option<PathBuf>,
+
+        /// Pre-pinned CID for the compiled circuit directory.  When set, the
+        /// circuit is still compiled locally to generate the verifier, but the
+        /// IPFS upload step is skipped and this CID is used as the on-chain
+        /// metadataHash.
+        #[arg(long, value_name = "CID")]
+        circuit_cid: Option<String>,
+
+        /// Pre-pinned CID for the leaves file.  Skips the leaves IPFS upload.
+        /// Mutually exclusive with --leaves-file.
+        #[arg(long, value_name = "CID")]
+        leaves_cid: Option<String>,
     },
     /// Update the public parameters of an existing ComplianceDefinition
     UpdateParams {
@@ -147,9 +171,15 @@ enum Commands {
         #[arg(long)]
         merkle_root: String,
 
-        /// JSON file containing the new merkle tree leaves to upload to IPFS
-        #[arg(long, value_name = "FILE")]
-        leaves_file: PathBuf,
+        /// JSON file containing the new merkle tree leaves to upload to IPFS.
+        /// Exactly one of --leaves-file or --leaves-cid must be provided.
+        #[arg(long, value_name = "FILE", conflicts_with = "leaves_cid", required_unless_present = "leaves_cid")]
+        leaves_file: Option<PathBuf>,
+
+        /// Pre-pinned CID for the leaves file.  Skips the leaves IPFS upload.
+        /// Mutually exclusive with --leaves-file.
+        #[arg(long, value_name = "CID")]
+        leaves_cid: Option<String>,
     },
 }
 
@@ -189,6 +219,8 @@ async fn main() -> Result<()> {
             t_start,
             t_end,
             leaves_file,
+            circuit_cid,
+            leaves_cid,
         } => {
             commands::new_compliance_definition::run(
                 circuit_dir,
@@ -203,6 +235,8 @@ async fn main() -> Result<()> {
                 &t_start,
                 &t_end,
                 leaves_file,
+                circuit_cid,
+                leaves_cid,
                 &receipts_dir,
                 &verify,
             )
@@ -219,6 +253,8 @@ async fn main() -> Result<()> {
             t_start,
             t_end,
             leaves_file,
+            circuit_cid,
+            leaves_cid,
         } => {
             commands::update_circuit::run(
                 circuit_dir,
@@ -232,6 +268,8 @@ async fn main() -> Result<()> {
                 &t_start,
                 &t_end,
                 leaves_file,
+                circuit_cid,
+                leaves_cid,
                 &receipts_dir,
                 &verify,
             )
@@ -243,6 +281,7 @@ async fn main() -> Result<()> {
             private_key,
             merkle_root,
             leaves_file,
+            leaves_cid,
         } => {
             commands::update_params::run(
                 &compliance_definition,
@@ -251,6 +290,7 @@ async fn main() -> Result<()> {
                 &private_key,
                 &merkle_root,
                 leaves_file,
+                leaves_cid,
                 &receipts_dir,
             )
             .await
